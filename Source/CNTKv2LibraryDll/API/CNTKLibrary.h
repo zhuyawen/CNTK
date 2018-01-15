@@ -4101,6 +4101,12 @@ namespace CNTK
     ///
     CNTK_API FunctionPtr SquaredError(const Variable& prediction, const Variable& targets, const std::wstring& name = L"");
 
+
+
+    CNTK_API FunctionPtr MarginInnerProduct(const Variable& prediction, const Variable& targets, const Variable& weight, size_t outputDimesion, double base, double gamma, double power, double lambdaMin, size_t marginCoefficient, const std::wstring& name = L"");
+
+
+
     ///
     /// Create an instance of the CNTK built-in operation to compute cross-entropy with softmax for specified input operands.
     ///

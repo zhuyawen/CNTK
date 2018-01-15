@@ -109,6 +109,7 @@ namespace CNTK
         if ((op == PrimitiveOpType::SumAll) ||
             (op == PrimitiveOpType::ReduceElements &&  anyOfAxesInReduction([](const Axis& axis) { return axis == Axis::AllAxes(); })) ||
             (op == PrimitiveOpType::SquaredError) ||
+            (op == PrimitiveOpType::MarginInnerProduct) ||
             (op == PrimitiveOpType::CrossEntropyWithSoftmax) ||
             (op == PrimitiveOpType::EditDistanceError) ||
             (op == PrimitiveOpType::ClassificationError) ||
@@ -793,6 +794,12 @@ namespace CNTK
                             m_attributes[PrimitiveFunction::AttributeNameAutoPadding] = AsDictionaryValueVector(autoPadding);
                             m_attributes[PrimitiveFunction::AttributeNameDilation] = dilation;
                             m_attributes[PrimitiveFunction::AttributeNameKernelShape] = kernelShape;
+                            break;
+                        }
+                        case PrimitiveOpType::MarginInnerProduct:
+                        {
+                            assert(m_inputs.size() == 3);
+                            outputShape = NDShape{};
                             break;
                         }
                         case PrimitiveOpType::CrossEntropyWithSoftmax:

@@ -1794,6 +1794,23 @@ namespace CNTK
         return AsBlock(std::move(squaredErrorComposite), { { predictionPlaceholder, prediction }, { targetPlaceholder, targets } }, L"SquaredError", name);
     }
 
+
+
+    FunctionPtr MarginInnerProduct(const Variable& features, const Variable& labels, const Variable& weight, size_t outputDimesion, double base, double gamma, double power, double lambdaMin, size_t marginCoefficient, const std::wstring& name)
+    {
+        std::vector<Variable> operands = { features, labels, weight };
+        auto additionalProperties = Dictionary();
+        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductOutputDimesion] = outputDimesion;
+        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductBase] = base;
+        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductGamma] = gamma;
+        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductPower] = power;
+        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductLambdaMin] = lambdaMin;
+        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductMarginCoefficient] = marginCoefficient;
+        return AsComposite(MakeSharedObject<PrimitiveFunction>(PrimitiveOpType::MarginInnerProduct, operands, std::move(additionalProperties), name), name);
+    }
+
+
+
     FunctionPtr CrossEntropyWithSoftmax(const Variable& prediction, const Variable& labels, const Axis& axis, const std::wstring& name)
     {
         auto predictionPlaceholder = PlaceholderVariable(L"prediction");

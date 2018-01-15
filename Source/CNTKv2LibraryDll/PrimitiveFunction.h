@@ -112,6 +112,7 @@ namespace CNTK
         {PrimitiveOpType::ToBatch, L"ToBatchAxis"},
         {PrimitiveOpType::Pad, L"Pad"},
         {PrimitiveOpType::Crop, L"Crop"},
+        {PrimitiveOpType::MarginInnerProduct, L"MarginInnerProduct"},
     };
 
     inline const std::wstring& PrimitiveOpTypeName(PrimitiveOpType opType)
@@ -291,6 +292,12 @@ namespace CNTK
         static const std::wstring AttributeNameBias;
         static const std::wstring AttributeNameDepthRadius;
         static const std::wstring AttributeNameCustomAttributes;
+        static const std::wstring AttributeMarginInnerProductOutputDimesion;
+        static const std::wstring AttributeMarginInnerProductBase;
+        static const std::wstring AttributeMarginInnerProductGamma;
+        static const std::wstring AttributeMarginInnerProductPower;
+        static const std::wstring AttributeMarginInnerProductLambdaMin;
+        static const std::wstring AttributeMarginInnerProductMarginCoefficient;
 
     protected:
         PrimitiveFunction(PrimitiveOpType op, const std::vector<Variable>& inputs, Dictionary&& functionConfig, const std::wstring& functionName, const std::wstring& uid)

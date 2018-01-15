@@ -972,6 +972,17 @@ namespace CNTK
                 case PrimitiveOpType::SquaredError:
                     computationNodePtr = New<SquareErrorNode<ElementType>>(network->GetDeviceId(), internalNodeName);
                     break;
+                case PrimitiveOpType::MarginInnerProduct:
+                {
+                    auto outputDimesion = functionConfig[PrimitiveFunction::AttributeMarginInnerProductOutputDimesion].Value<size_t>();
+                    auto base = functionConfig[PrimitiveFunction::AttributeMarginInnerProductBase].Value<ElementType>();
+                    auto gamma = functionConfig[PrimitiveFunction::AttributeMarginInnerProductGamma].Value<ElementType>();
+                    auto power = functionConfig[PrimitiveFunction::AttributeMarginInnerProductPower].Value<ElementType>();
+                    auto lambdaMin = functionConfig[PrimitiveFunction::AttributeMarginInnerProductLambdaMin].Value<ElementType>();
+                    auto marginCoefficient = functionConfig[PrimitiveFunction::AttributeMarginInnerProductMarginCoefficient].Value<size_t>();
+                    computationNodePtr = New<MarginInnerProductNode<ElementType>>(network->GetDeviceId(), internalNodeName, outputDimesion, base, gamma, power, lambdaMin, marginCoefficient);
+                    break;
+                }
                 case PrimitiveOpType::CrossEntropyWithSoftmax:
                     computationNodePtr = New<CrossEntropyWithSoftmaxNode<ElementType>>(network->GetDeviceId(), internalNodeName);
                     break;
