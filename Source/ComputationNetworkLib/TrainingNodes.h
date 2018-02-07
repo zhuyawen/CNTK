@@ -32,8 +32,10 @@ static const wstring RandomDistributionTypeBernoulli = L"bernoulli";
 template <class ElemType>
 class MarginInnerProductNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<3>
 {
-public:
 
+#define WEIGHT_GRADIENT_CORRECTION
+
+public:
     typedef ComputationNodeNonLooping<ElemType> Base; UsingComputationNodeMembersBoilerplate;
     static const std::wstring TypeName() { return L"MarginInnerProduct"; }
 
@@ -48,7 +50,7 @@ public:
     }
 
     MarginInnerProductNode(DEVICEID_TYPE deviceId, const wstring& name, size_t outputDimesion = 0,
-        ElemType base = 1000, ElemType gamma = 0.12, ElemType power = 1, ElemType lambdaMin = 5, size_t marginCoefficient = 2)
+        ElemType base = 0, ElemType gamma = 0, ElemType power = 1, ElemType lambdaMin = 0, size_t marginCoefficient = 2)
         : Base(deviceId, name), m_outputDimesion(outputDimesion), m_base(base), m_gamma(gamma), m_power(power), m_lambdaMin(lambdaMin), m_marginCoefficient(marginCoefficient)
     {
         m_iter = 0;
@@ -59,29 +61,38 @@ public:
         m_inputDimesion = InputRef(1).Value().GetNumRows();
         m_minibatchSize = InputRef(1).Value().GetNumCols();
 
-        m_cosTheta->Resize(m_outputDimesion, m_minibatchSize);
-        if (m_marginCoefficient >= 2)
-        {
-            m_cosThetaQuadratic->Resize(m_outputDimesion, m_minibatchSize);
-            m_sign0->Resize(m_outputDimesion, m_minibatchSize);
-        }
-        if (m_marginCoefficient >= 3)
-        {
-            m_cosThetaCubic->Resize(m_outputDimesion, m_minibatchSize);
-            m_sign1->Resize(m_outputDimesion, m_minibatchSize);
-            m_sign2->Resize(m_outputDimesion, m_minibatchSize);
-        }
-        if (m_marginCoefficient >= 4)
-        {
-            m_cosThetaQuartic->Resize(m_outputDimesion, m_minibatchSize);
-            m_sign3->Resize(m_outputDimesion, m_minibatchSize);
-            m_sign4->Resize(m_outputDimesion, m_minibatchSize);
-        }
-
         m_label->Resize(1, m_minibatchSize);
         m_labelValue->Resize(1, m_minibatchSize);
         m_inputMagnitude->Resize(1, m_minibatchSize);
         m_weightMagnitude->Resize(m_outputDimesion, 1);
+        m_cosTheta->Resize(m_outputDimesion, m_minibatchSize);
+
+        switch (m_marginCoefficient)
+        {
+            case 2:
+            {
+                m_cosThetaQuadratic->Resize(m_outputDimesion, m_minibatchSize);
+                m_sign0->Resize(m_outputDimesion, m_minibatchSize);
+                break;
+            }
+            case 3:
+            {
+                m_cosThetaQuadratic->Resize(m_outputDimesion, m_minibatchSize);
+                m_cosThetaCubic->Resize(m_outputDimesion, m_minibatchSize);
+                m_sign1->Resize(m_outputDimesion, m_minibatchSize);
+                m_sign2->Resize(m_outputDimesion, m_minibatchSize);
+                break;
+            }
+            case 4:
+            {
+                m_cosThetaQuadratic->Resize(m_outputDimesion, m_minibatchSize);
+                m_cosThetaCubic->Resize(m_outputDimesion, m_minibatchSize);
+                m_cosThetaQuartic->Resize(m_outputDimesion, m_minibatchSize);
+                m_sign3->Resize(m_outputDimesion, m_minibatchSize);
+                m_sign4->Resize(m_outputDimesion, m_minibatchSize);
+                break;
+            }
+        }
 
         m_tempMatrix->Resize(m_outputDimesion, m_minibatchSize);
         m_X_T->Resize(m_minibatchSize, m_inputDimesion);
@@ -92,9 +103,13 @@ public:
     {
         FrameRange fr(InputRef(0).GetMBLayout());
         auto& weight = InputRef(2).Value();
+        auto X = InputRef(1).ValueFor(fr);
 
         if (1 == inputIndex)
         {
+            if (m_marginCoefficient >= 2)
+                m_gradientArray = Gradient().CopyToArray();
+
             auto X_gradient = InputRef(1).GradientFor(fr);
             X_gradient.SetValue(0.0);
             switch (m_marginCoefficient)
@@ -108,48 +123,41 @@ public:
                 {
                     /*
                         Define m_X_T as the transpose of X_gradient.
-                        The kernel matrix library should provide the column-add-to-column (or row-add-to-row) implement.
+                        The kernel matrix library should provide the column-add-column (or row-add-row) implement.
                     */
-                    auto X = InputRef(1).ValueFor(fr);
                     m_X_T->SetValue(0.0);
                     size_t labelValue = 0;
                     ElemType YValue = 0.0;
                     ElemType coeff_w = 0.0;
                     ElemType coeff_x = 0.0;
                     ElemType coeff_norm = 0.0;
-                    ElemType* labelArray = m_label->CopyToArray();
-                    ElemType* gradientArray = Gradient().CopyToArray();
-                    ElemType* inputMagnitudeArray = m_inputMagnitude->CopyToArray();
-                    ElemType* sign0Array = m_sign0->CopyToArray();
-                    ElemType* cosThetaArray = m_cosTheta->CopyToArray();
-                    ElemType* cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
                     size_t index = 0;
                     for (size_t i(0); i < m_minibatchSize; ++i)
                     {
-                        labelValue = (size_t)(labelArray[i]);
+                        labelValue = (size_t)(m_labelArray[i]);
                         for (size_t j(0); j < m_outputDimesion; ++j, ++index)
                         {
                             if (j != labelValue)
                             {
-                                YValue = gradientArray[index] / (1.0 + m_lambda);
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
                                 m_row->AssignRowSliceValuesOf(weight, j, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
                             }
                             else
                             {
-                                coeff_w = 4.0 * sign0Array[index] * cosThetaArray[index];
-                                coeff_x = 1.0 / (-inputMagnitudeArray[i]) * (2.0 * sign0Array[index] * cosThetaQuadraticArray[index] + 1);
+                                coeff_w = 4.0 * m_sign0Array[index] * m_cosThetaArray[index];
+                                coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (2.0 * m_sign0Array[index] * m_cosThetaQuadraticArray[index] + 1);
                                 coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
                                 coeff_w /= coeff_norm;
                                 coeff_x /= coeff_norm;
 
-                                YValue = gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
                                 m_row->AssignRowSliceValuesOf(weight, j, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
 
-                                YValue = gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
                                 m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
@@ -158,62 +166,47 @@ public:
                     }
                     Matrix<ElemType>::ScaleAndAdd(1.0, m_X_T->Transpose(), X_gradient);
                     Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
-                    delete[] labelArray;
-                    delete[] gradientArray;
-                    delete[] inputMagnitudeArray;
-                    delete[] sign0Array;
-                    delete[] cosThetaArray;
-                    delete[] cosThetaQuadraticArray;
-
                     break;
                 }
                 case 3:
                 {
                     /*
-                            Define m_X_T as the transpose of X_gradient.
-                            The kernel matrix library should provide the column-add-to-column (or row-add-to-row) implement.
+                        Define m_X_T as the transpose of X_gradient.
+                        The kernel matrix library should provide the column-add-column (or row-add-row) implement.
                     */
-                    auto X = InputRef(1).ValueFor(fr);
                     m_X_T->SetValue(0.0);
                     size_t labelValue = 0;
                     ElemType YValue = 0.0;
                     ElemType coeff_w = 0.0;
                     ElemType coeff_x = 0.0;
                     ElemType coeff_norm = 0.0;
-                    ElemType* labelArray = m_label->CopyToArray();
-                    ElemType* gradientArray = Gradient().CopyToArray();
-                    ElemType* inputMagnitudeArray = m_inputMagnitude->CopyToArray();
-                    ElemType* sign1Array = m_sign1->CopyToArray();
-                    ElemType* sign2Array = m_sign2->CopyToArray();
-                    ElemType* cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
-                    ElemType* cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
                     size_t index = 0;
                     for (size_t i(0); i < m_minibatchSize; ++i)
                     {
-                        labelValue = (size_t)(labelArray[i]);
+                        labelValue = (size_t)(m_labelArray[i]);
                         for (size_t j(0); j < m_outputDimesion; ++j, ++index)
                         {
                             if (j != labelValue)
                             {
-                                YValue = gradientArray[index] / (1.0 + m_lambda);
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
                                 m_row->AssignRowSliceValuesOf(weight, j, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
                             }
                             else
                             {
-                                coeff_w = sign1Array[index] * (12.0 * cosThetaQuadraticArray[index] - 3.0);
-                                coeff_x = 1.0 / (-inputMagnitudeArray[i]) * (8.0 * sign1Array[index] * cosThetaCubicArray[index] - sign2Array[index]);
+                                coeff_w = m_sign1Array[index] * (12.0 * m_cosThetaQuadraticArray[index] - 3.0);
+                                coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (8.0 * m_sign1Array[index] * m_cosThetaCubicArray[index] - m_sign2Array[index]);
                                 coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
                                 coeff_w /= coeff_norm;
                                 coeff_x /= coeff_norm;
 
-                                YValue = gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
                                 m_row->AssignRowSliceValuesOf(weight, j, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
 
-                                YValue = gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
                                 m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
@@ -222,65 +215,47 @@ public:
                     }
                     Matrix<ElemType>::ScaleAndAdd(1.0, m_X_T->Transpose(), X_gradient);
                     Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
-                    delete[] labelArray;
-                    delete[] gradientArray;
-                    delete[] inputMagnitudeArray;
-                    delete[] sign1Array;
-                    delete[] sign2Array;
-                    delete[] cosThetaQuadraticArray;
-                    delete[] cosThetaCubicArray;
-
                     break;
                 }
                 case 4:
                 {
                     /*
                         Define m_X_T as the transpose of X_gradient.
-                        The kernel matrix library should provide the column-add-to-column (or row-add-to-row) implement.
+                        The kernel matrix library should provide the column-add-column (or row-add-row) implement.
                     */
-                    auto X = InputRef(1).ValueFor(fr);
                     m_X_T->SetValue(0.0);
                     size_t labelValue = 0;
                     ElemType YValue = 0.0;
                     ElemType coeff_w = 0.0;
                     ElemType coeff_x = 0.0;
                     ElemType coeff_norm = 0.0;
-                    ElemType* labelArray = m_label->CopyToArray();
-                    ElemType* gradientArray = Gradient().CopyToArray();
-                    ElemType* inputMagnitudeArray = m_inputMagnitude->CopyToArray();
-                    ElemType* sign3Array = m_sign3->CopyToArray();
-                    ElemType* sign4Array = m_sign4->CopyToArray();
-                    ElemType* cosThetaArray = m_cosTheta->CopyToArray();
-                    ElemType* cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
-                    ElemType* cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
-                    ElemType* cosThetaQuarticArray = m_cosThetaQuartic->CopyToArray();
                     size_t index = 0;
                     for (size_t i(0); i < m_minibatchSize; ++i)
                     {
-                        labelValue = (size_t)(labelArray[i]);
+                        labelValue = (size_t)(m_labelArray[i]);
                         for (size_t j(0); j < m_outputDimesion; ++j, ++index)
                         {
                             if (j != labelValue)
                             {
-                                YValue = gradientArray[index] / (1.0 + m_lambda);
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
                                 m_row->AssignRowSliceValuesOf(weight, j, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
                             }
                             else
                             {
-                                coeff_w = sign3Array[index] * (32.0 * cosThetaCubicArray[index] - 16.0 * cosThetaArray[index]);
-                                coeff_x = 1.0 / (-inputMagnitudeArray[i]) * (sign3Array[index] * (24.0 * cosThetaQuarticArray[index] - 8.0 * cosThetaQuadraticArray[index] - 1.0) - sign4Array[index]);
+                                coeff_w = m_sign3Array[index] * (32.0 * m_cosThetaCubicArray[index] - 16.0 * m_cosThetaArray[index]);
+                                coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (m_sign3Array[index] * (24.0 * m_cosThetaQuarticArray[index] - 8.0 * m_cosThetaQuadraticArray[index] - 1.0) - m_sign4Array[index]);
                                 coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
                                 coeff_w /= coeff_norm;
                                 coeff_x /= coeff_norm;
 
-                                YValue = gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
                                 m_row->AssignRowSliceValuesOf(weight, j, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
 
-                                YValue = gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
                                 m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
                                 Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
                                 m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
@@ -289,16 +264,6 @@ public:
                     }
                     Matrix<ElemType>::ScaleAndAdd(1.0, m_X_T->Transpose(), X_gradient);
                     Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
-                    delete[] labelArray;
-                    delete[] gradientArray;
-                    delete[] inputMagnitudeArray;
-                    delete[] sign3Array;
-                    delete[] sign4Array;
-                    delete[] cosThetaArray;
-                    delete[] cosThetaQuadraticArray;
-                    delete[] cosThetaCubicArray;
-                    delete[] cosThetaQuarticArray;
-
                     break;
                 }
                 default:
@@ -309,9 +274,194 @@ public:
         }
         else if (2 == inputIndex)
         {
-            auto X = InputRef(1).ValueFor(fr);
             auto& weightGradient = InputRef(2).Gradient();
+            weightGradient.SetValue(0.0);
+
+#ifndef WEIGHT_GRADIENT_CORRECTION
             Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
+#else
+            switch (m_marginCoefficient)
+            {
+                case 1:
+                {
+                    Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
+                    break;
+                }
+                case 2:
+                {
+                    size_t labelValue = 0;
+                    ElemType YValue = 0.0;
+                    ElemType coeff_w = 0.0;
+                    ElemType coeff_x = 0.0;
+                    ElemType coeff_norm = 0.0;
+                    m_X_T->SetValue(X.Transpose());
+                    size_t index = 0;
+                    for (size_t i(0); i < m_minibatchSize; ++i)
+                    {
+                        labelValue = (size_t)(m_labelArray[i]);
+                        for (size_t j(0); j < m_outputDimesion; ++j, ++index)
+                        {
+                            if (j != labelValue)
+                            {
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
+                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+                            }
+                            else
+                            {
+                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (2.0 * m_sign0Array[index] * m_cosThetaQuadraticArray[index] + 1);
+                                coeff_x = 4.0 * m_sign0Array[index] * m_cosThetaArray[index];
+                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
+                                coeff_w /= coeff_norm;
+                                coeff_x /= coeff_norm;
+
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                                m_row->AssignRowSliceValuesOf(weight, j, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+                            }
+                        }
+                    }
+                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
+                    break;
+                }
+                case 3:
+                {
+                    size_t labelValue = 0;
+                    ElemType YValue = 0.0;
+                    ElemType coeff_w = 0.0;
+                    ElemType coeff_x = 0.0;
+                    ElemType coeff_norm = 0.0;
+                    m_X_T->SetValue(X.Transpose());
+                    size_t index = 0;
+                    for (size_t i(0); i < m_minibatchSize; ++i)
+                    {
+                        labelValue = (size_t)(m_labelArray[i]);
+                        for (size_t j(0); j < m_outputDimesion; ++j, ++index)
+                        {
+                            if (j != labelValue)
+                            {
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
+                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+                            }
+                            else
+                            {
+                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (8.0 * m_sign1Array[index] * m_cosThetaCubicArray[index] - m_sign2Array[index]);
+                                coeff_x = m_sign1Array[index] * (12.0 * m_cosThetaQuadraticArray[index] - 3.0);
+                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
+                                coeff_w /= coeff_norm;
+                                coeff_x /= coeff_norm;
+
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                                m_row->AssignRowSliceValuesOf(weight, j, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+                            }
+                        }
+                    }
+                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
+                    break;
+                }
+                case 4:
+                {
+                    size_t labelValue = 0;
+                    ElemType YValue = 0.0;
+                    ElemType coeff_w = 0.0;
+                    ElemType coeff_x = 0.0;
+                    ElemType coeff_norm = 0.0;
+                    m_X_T->SetValue(X.Transpose());
+                    size_t index = 0;
+                    for (size_t i(0); i < m_minibatchSize; ++i)
+                    {
+                        labelValue = (size_t)(m_labelArray[i]);
+                        for (size_t j(0); j < m_outputDimesion; ++j, ++index)
+                        {
+                            if (j != labelValue)
+                            {
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
+                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+                            }
+                            else
+                            {
+                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (m_sign3Array[index] * (24.0 * m_cosThetaQuarticArray[index] - 8.0 * m_cosThetaQuadraticArray[index] - 1.0) - m_sign4Array[index]);
+                                coeff_x = m_sign3Array[index] * (32.0 * m_cosThetaCubicArray[index] - 16.0 * m_cosThetaArray[index]);
+                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
+                                coeff_w /= coeff_norm;
+                                coeff_x /= coeff_norm;
+
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                                m_row->AssignRowSliceValuesOf(weight, j, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+
+                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
+                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
+                            }
+                        }
+                    }
+                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
+                    break;
+                }
+                default:
+                {
+                    LogicError("This marginCoefficient is not supported yet.");
+                }
+            }
+#endif
+
+            if (m_marginCoefficient >= 2)
+            {
+                delete[] m_valueArray;
+                delete[] m_labelArray;
+                delete[] m_inputMagnitudeArray;
+                delete[] m_cosThetaArray;
+
+                delete[] m_gradientArray; // Memory allocated in BackpropToNonLooping(1)
+
+                switch (m_marginCoefficient)
+                {
+                    case 2:
+                    {
+                        delete[] m_cosThetaQuadraticArray;
+                        delete[] m_sign0Array;
+                        break;
+                    }
+                    case 3:
+                    {
+                        delete[] m_cosThetaQuadraticArray;
+                        delete[] m_cosThetaCubicArray;
+                        delete[] m_sign1Array;
+                        delete[] m_sign2Array;
+                        break;
+                    }
+                    case 4:
+                    {
+                        delete[] m_cosThetaQuadraticArray;
+                        delete[] m_cosThetaCubicArray;
+                        delete[] m_cosThetaQuarticArray;
+                        delete[] m_sign3Array;
+                        delete[] m_sign4Array;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -334,7 +484,6 @@ public:
         m_inputMagnitude->InplaceSqrt();
         Matrix<ElemType>::Multiply(weight, false, X, false, *m_cosTheta);
         m_cosTheta->RowElementDivideBy(*m_inputMagnitude);
-
         // m_sign0 = sign(m_cosTheta)
         m_sign0->AssignSignOf(*m_cosTheta);
 
@@ -345,6 +494,9 @@ public:
             case 2:
             {
                 Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
+
+                m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
+                m_sign0Array = m_sign0->CopyToArray();
                 break;
             }
             case 3:
@@ -365,6 +517,10 @@ public:
                 m_sign2->ElementMultiplyWith(*m_sign0);
                 m_tempMatrix->SetValue(-2.0); // Only use m_tempMatrix to be a temporary scalar.
                 Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
+
+                m_cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
+                m_sign1Array = m_sign1->CopyToArray();
+                m_sign2Array = m_sign2->CopyToArray();
 
                 break;
             }
@@ -387,6 +543,11 @@ public:
                 m_tempMatrix->SetValue(-3.0); // Only use m_tempMatrix to be a temporary scalar.
                 Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign4);
 
+                m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
+                m_cosThetaQuarticArray = m_cosThetaQuartic->CopyToArray();
+                m_sign3Array = m_sign3->CopyToArray();
+                m_sign4Array = m_sign4->CopyToArray();
+
                 break;
             }
             default:
@@ -397,102 +558,90 @@ public:
 
         Matrix<ElemType>::Multiply(weight, false, X, false, Value());
 
+        if (m_marginCoefficient >= 2)
+        {
+            m_valueArray = Value().CopyToArray();
+            m_labelArray = m_label->CopyToArray();
+            m_inputMagnitudeArray = m_inputMagnitude->CopyToArray();
+            m_cosThetaArray = m_cosTheta->CopyToArray();
+
+            switch (m_marginCoefficient)
+            {
+                case 2:
+                {
+                    m_sign0Array = m_sign0->CopyToArray();
+                    m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
+                    break;
+                }
+                case 3:
+                {
+                    m_sign1Array = m_sign1->CopyToArray();
+                    m_sign2Array = m_sign2->CopyToArray();
+                    m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
+                    m_cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
+                    break;
+                }
+                case 4:
+                {
+                    m_sign3Array = m_sign3->CopyToArray();
+                    m_sign4Array = m_sign4->CopyToArray();
+                    m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
+                    m_cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
+                    m_cosThetaQuarticArray = m_cosThetaQuartic->CopyToArray();
+                    break;
+                }
+            }
+        }
+
+        size_t labelValue = 0;
+        ElemType YValue = 0.0;
+        size_t index = 0;
         switch (m_marginCoefficient)
         {
             case 1:
                 break;
             case 2:
             {
-                size_t labelValue = 0;
-                ElemType YValue = 0.0;
-                ElemType* valueArray = Value().CopyToArray();
-                ElemType* labelArray = m_label->CopyToArray();
-                ElemType* inputMagnitudeArray = m_inputMagnitude->CopyToArray();
-                ElemType* sign0Array = m_sign0->CopyToArray();
-                ElemType* cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
-
-                for (size_t i = 0; i < m_minibatchSize; ++i)
+                for (size_t i(0); i < m_minibatchSize; ++i)
                 {
-                    labelValue = (size_t)labelArray[i];
-                    size_t index = i * m_outputDimesion + labelValue;
-                    YValue = valueArray[index] * m_lambda;
-                    YValue += inputMagnitudeArray[i] * (2 * sign0Array[index] * cosThetaQuadraticArray[index] - 1);
+                    labelValue = (size_t)m_labelArray[i];
+                    index = i * m_outputDimesion + labelValue;
+                    YValue = m_valueArray[index] * m_lambda;
+                    YValue += m_inputMagnitudeArray[i] * (2 * m_sign0Array[index] * m_cosThetaQuadraticArray[index] - 1);
                     YValue /= (1 + m_lambda);
-                    valueArray[index] = YValue;
+                    m_valueArray[index] = YValue;
                 }
-                Value().SetValue(Value().GetNumRows(), Value().GetNumCols(), m_deviceId, valueArray, matrixFormatDense, nullptr);
-
-                delete[] valueArray;
-                delete[] labelArray;
-                delete[] inputMagnitudeArray;
-                delete[] sign0Array;
-                delete[] cosThetaQuadraticArray;
+                Value().SetValue(Value().GetNumRows(), Value().GetNumCols(), m_deviceId, m_valueArray, matrixFormatDense, nullptr);
 
                 break;
             }
             case 3:
             {
-                size_t labelValue = 0;
-                ElemType YValue = 0.0;
-                ElemType* valueArray = Value().CopyToArray();
-                ElemType* labelArray = m_label->CopyToArray();
-                ElemType* inputMagnitudeArray = m_inputMagnitude->CopyToArray();
-                ElemType* sign1Array = m_sign1->CopyToArray();
-                ElemType* sign2Array = m_sign2->CopyToArray();
-                ElemType* cosThetaArray = m_cosTheta->CopyToArray();
-                ElemType* cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
-
-                for (size_t i = 0; i < m_minibatchSize; ++i)
+                for (size_t i(0); i < m_minibatchSize; ++i)
                 {
-                    labelValue = (size_t)labelArray[i];
-                    size_t index = i * m_outputDimesion + labelValue;
-                    YValue = valueArray[index] * m_lambda;
-                    YValue += inputMagnitudeArray[i] * (sign1Array[index] * (4 * cosThetaCubicArray[index] - 3 * cosThetaArray[index]) + sign2Array[index]);
+                    labelValue = (size_t)m_labelArray[i];
+                    index = i * m_outputDimesion + labelValue;
+                    YValue = m_valueArray[index] * m_lambda;
+                    YValue += m_inputMagnitudeArray[i] * (m_sign1Array[index] * (4 * m_cosThetaCubicArray[index] - 3 * m_cosThetaArray[index]) + m_sign2Array[index]);
                     YValue /= (1 + m_lambda);
-                    valueArray[index] = YValue;
+                    m_valueArray[index] = YValue;
                 }
-                Value().SetValue(Value().GetNumRows(), Value().GetNumCols(), m_deviceId, valueArray, matrixFormatDense, nullptr);
-
-                delete[] valueArray;
-                delete[] labelArray;
-                delete[] inputMagnitudeArray;
-                delete[] sign1Array;
-                delete[] sign2Array;
-                delete[] cosThetaArray;
-                delete[] cosThetaCubicArray;
+                Value().SetValue(Value().GetNumRows(), Value().GetNumCols(), m_deviceId, m_valueArray, matrixFormatDense, nullptr);
 
                 break;
             }
             case 4:
             {
-                size_t labelValue = 0;
-                ElemType YValue = 0.0;
-                ElemType* valueArray = Value().CopyToArray();
-                ElemType* labelArray = m_label->CopyToArray();
-                ElemType* inputMagnitudeArray = m_inputMagnitude->CopyToArray();
-                ElemType* sign3Array = m_sign3->CopyToArray();
-                ElemType* sign4Array = m_sign4->CopyToArray();
-                ElemType* cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
-                ElemType* cosThetaQuarticArray = m_cosThetaQuartic->CopyToArray();
-
-                for (size_t i = 0; i < m_minibatchSize; ++i)
+                for (size_t i(0); i < m_minibatchSize; ++i)
                 {
-                    labelValue = (size_t)labelArray[i];
-                    size_t index = i * m_outputDimesion + labelValue;
-                    YValue = valueArray[index] * m_lambda;
-                    YValue += inputMagnitudeArray[i] * (sign3Array[index] * (8 * cosThetaQuadraticArray[index] + 8 * cosThetaQuarticArray[index]) + sign4Array[index]);
+                    labelValue = (size_t)m_labelArray[i];
+                    index = i * m_outputDimesion + labelValue;
+                    YValue = m_valueArray[index] * m_lambda;
+                    YValue += m_inputMagnitudeArray[i] * (m_sign3Array[index] * (8 * m_cosThetaQuarticArray[index] - 8 * m_cosThetaQuadraticArray[index] + 1) + m_sign4Array[index]);
                     YValue /= (1 + m_lambda);
-                    valueArray[index] = YValue;
+                    m_valueArray[index] = YValue;
                 }
-                Value().SetValue(Value().GetNumRows(), Value().GetNumCols(), m_deviceId, valueArray, matrixFormatDense, nullptr);
-
-                delete[] valueArray;
-                delete[] labelArray;
-                delete[] inputMagnitudeArray;
-                delete[] sign3Array;
-                delete[] sign4Array;
-                delete[] cosThetaQuadraticArray;
-                delete[] cosThetaQuarticArray;
+                Value().SetValue(Value().GetNumRows(), Value().GetNumCols(), m_deviceId, m_valueArray, matrixFormatDense, nullptr);
 
                 break;
             }
@@ -521,32 +670,71 @@ public:
         {
             auto node = dynamic_pointer_cast<MarginInnerProductNode<ElemType>>(nodeP);
 
-            node->m_cosTheta->SetValue(*m_cosTheta);
-            node->m_sign0->SetValue(*m_sign0);
-            if (m_marginCoefficient >= 2)
-            {
-                node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
-                node->m_sign0->SetValue(*m_sign0);
-            }
-            if (m_marginCoefficient >= 3)
-            {
-                node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
-                node->m_sign1->SetValue(*m_sign1);
-                node->m_sign2->SetValue(*m_sign2);
-            }
-            if (m_marginCoefficient >= 4)
-            {
-                node->m_cosThetaQuartic->SetValue(*m_cosThetaQuartic);
-                node->m_sign3->SetValue(*m_sign3);
-                node->m_sign4->SetValue(*m_sign4);
-            }
-
             node->m_label->SetValue(*m_label);
             node->m_inputMagnitude->SetValue(*m_inputMagnitude);
             node->m_weightMagnitude->SetValue(*m_weightMagnitude);
+            node->m_cosTheta->SetValue(*m_cosTheta);
+
+            if (m_marginCoefficient >= 2)
+            {
+                node->m_valueArray = m_valueArray;
+                node->m_labelArray = m_labelArray;
+                node->m_inputMagnitudeArray = m_inputMagnitudeArray;
+                node->m_cosThetaArray = m_cosThetaArray;
+            }
+
+            switch (m_marginCoefficient)
+            {
+                case 2:
+                {
+                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                    node->m_sign0->SetValue(*m_sign0);
+                    node->m_cosThetaQuadraticArray = m_cosThetaQuadraticArray;
+                    node->m_sign0Array = m_sign0Array;
+                    break;
+                }
+                case 3:
+                {
+                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                    node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
+                    node->m_sign1->SetValue(*m_sign1);
+                    node->m_sign2->SetValue(*m_sign2);
+                    node->m_cosThetaQuadraticArray = m_cosThetaQuadraticArray;
+                    node->m_cosThetaCubicArray = m_cosThetaCubicArray;
+                    node->m_sign1Array = m_sign1Array;
+                    node->m_sign2Array = m_sign2Array;
+                    break;
+                }
+                case 4:
+                {
+                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                    node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
+                    node->m_cosThetaQuartic->SetValue(*m_cosThetaQuartic);
+                    node->m_sign3->SetValue(*m_sign3);
+                    node->m_sign4->SetValue(*m_sign4);
+                    node->m_cosThetaQuadraticArray = m_cosThetaQuadraticArray;
+                    node->m_cosThetaCubicArray = m_cosThetaCubicArray;
+                    node->m_cosThetaQuarticArray = m_cosThetaQuarticArray;
+                    node->m_sign3Array = m_sign3Array;
+                    node->m_sign4Array = m_sign4Array;
+                    break;
+                }
+            }
+
             node->m_tempMatrix->SetValue(*m_tempMatrix);
             node->m_X_T->SetValue(*m_X_T);
             node->m_row->SetValue(*m_row);
+
+            node->m_inputDimesion = m_inputDimesion;
+            node->m_outputDimesion = m_outputDimesion;
+            node->m_minibatchSize = m_minibatchSize;
+            node->m_marginCoefficient = m_marginCoefficient;
+            node->m_base = m_base;
+            node->m_gamma = m_gamma;
+            node->m_power = m_power;
+            node->m_lambdaMin = m_lambdaMin;
+            node->m_iter = m_iter;
+            node->m_lambda = m_lambda;
         }
     }
 
@@ -594,7 +782,7 @@ public:
         ReleaseMatrixToPool(m_row, matrixPool);
     }
 
-public:
+private:
     size_t m_inputDimesion; // n
     size_t m_outputDimesion; // k
     size_t m_minibatchSize; // m
@@ -611,6 +799,10 @@ public:
     shared_ptr<Matrix<ElemType>> m_cosThetaQuadratic; // Matrix(k,m)
     shared_ptr<Matrix<ElemType>> m_cosThetaCubic; // Matrix(k,m)
     shared_ptr<Matrix<ElemType>> m_cosThetaQuartic; // Matrix(k,m)
+    ElemType* m_cosThetaArray;
+    ElemType* m_cosThetaQuadraticArray;
+    ElemType* m_cosThetaCubicArray;
+    ElemType* m_cosThetaQuarticArray;
 
     //sign
     shared_ptr<Matrix<ElemType>> m_sign0; // Matrix(k,m)
@@ -618,17 +810,27 @@ public:
     shared_ptr<Matrix<ElemType>> m_sign2; // Matrix(k,m)
     shared_ptr<Matrix<ElemType>> m_sign3; // Matrix(k,m)
     shared_ptr<Matrix<ElemType>> m_sign4; // Matrix(k,m)
+    ElemType* m_sign0Array;
+    ElemType* m_sign1Array;
+    ElemType* m_sign2Array;
+    ElemType* m_sign3Array;
+    ElemType* m_sign4Array;
 
     //In softmax, input is Matrix(n,m), output is Matrx(k,m), output = m_weigth * input
     shared_ptr<Matrix<ElemType>> m_label; // Matrix(1,m)
     shared_ptr<Matrix<ElemType>> m_labelValue; // Matrix(1,m)
     shared_ptr<Matrix<ElemType>> m_inputMagnitude; // Matrix(1,m)
     shared_ptr<Matrix<ElemType>> m_weightMagnitude; // Matrix(k,1)
+    ElemType* m_labelArray;
+    ElemType* m_inputMagnitudeArray;
 
     //temp matrix
     shared_ptr<Matrix<ElemType>> m_tempMatrix; // Matrix(k,m)
     shared_ptr<Matrix<ElemType>> m_X_T; // Matrix(m,n)
     shared_ptr<Matrix<ElemType>> m_row; // Matrix(1,n)
+
+    ElemType* m_valueArray;
+    ElemType* m_gradientArray;
 };
 
 // -----------------------------------------------------------------------
