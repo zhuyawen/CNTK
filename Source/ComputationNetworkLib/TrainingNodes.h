@@ -33,7 +33,7 @@ template <class ElemType>
 class MarginInnerProductNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<3>
 {
 
-#define WEIGHT_GRADIENT_CORRECTION
+//#define WEIGHT_GRADIENT_CORRECTION
 
 public:
     typedef ComputationNodeNonLooping<ElemType> Base; UsingComputationNodeMembersBoilerplate;
