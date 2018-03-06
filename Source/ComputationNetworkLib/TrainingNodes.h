@@ -112,11 +112,11 @@ public:
 
             auto X_gradient = InputRef(1).GradientFor(fr);
             X_gradient.SetValue(0.0);
+            Matrix<ElemType>::MultiplyAndWeightedAdd(1.0, weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
             switch (m_marginCoefficient)
             {
                 case 1:
                 {
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(1.0, weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
                     break;
                 }
                 case 2:
@@ -135,37 +135,29 @@ public:
                     for (size_t i(0); i < m_minibatchSize; ++i)
                     {
                         labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimesion; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
-                            }
-                            else
-                            {
-                                coeff_w = 4.0 * m_sign0Array[index] * m_cosThetaArray[index];
-                                coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (2.0 * m_sign0Array[index] * m_cosThetaQuadraticArray[index] + 1);
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
+                        index = i * m_outputDimesion + labelValue;
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda);
+                        m_row->AssignRowSliceValuesOf(weight, labelValue, 1);
+                        Matrix<ElemType>::Scale(-YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
 
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
+                        coeff_w = 4.0 * m_sign0Array[index] * m_cosThetaArray[index];
+                        coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (2.0 * m_sign0Array[index] * m_cosThetaQuadraticArray[index] + 1);
+                        coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
+                        coeff_w /= coeff_norm;
+                        coeff_x /= coeff_norm;
 
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
-                            }
-                        }
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                        m_row->AssignRowSliceValuesOf(weight, labelValue, 1);
+                        Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
+
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                        m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
+                        Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
                     }
                     Matrix<ElemType>::ScaleAndAdd(1.0, m_X_T->Transpose(), X_gradient);
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
                     break;
                 }
                 case 3:
@@ -184,37 +176,29 @@ public:
                     for (size_t i(0); i < m_minibatchSize; ++i)
                     {
                         labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimesion; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
-                            }
-                            else
-                            {
-                                coeff_w = m_sign1Array[index] * (12.0 * m_cosThetaQuadraticArray[index] - 3.0);
-                                coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (8.0 * m_sign1Array[index] * m_cosThetaCubicArray[index] - m_sign2Array[index]);
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
+                        index = i * m_outputDimesion + labelValue;
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda);
+                        m_row->AssignRowSliceValuesOf(weight, labelValue, 1);
+                        Matrix<ElemType>::Scale(-YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
 
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
+                        coeff_w = m_sign1Array[index] * (12.0 * m_cosThetaQuadraticArray[index] - 3.0);
+                        coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (8.0 * m_sign1Array[index] * m_cosThetaCubicArray[index] - m_sign2Array[index]);
+                        coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
+                        coeff_w /= coeff_norm;
+                        coeff_x /= coeff_norm;
 
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
-                            }
-                        }
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                        m_row->AssignRowSliceValuesOf(weight, labelValue, 1);
+                        Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
+
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                        m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
+                        Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
                     }
                     Matrix<ElemType>::ScaleAndAdd(1.0, m_X_T->Transpose(), X_gradient);
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
                     break;
                 }
                 case 4:
@@ -233,37 +217,29 @@ public:
                     for (size_t i(0); i < m_minibatchSize; ++i)
                     {
                         labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimesion; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
-                            }
-                            else
-                            {
-                                coeff_w = m_sign3Array[index] * (32.0 * m_cosThetaCubicArray[index] - 16.0 * m_cosThetaArray[index]);
-                                coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (m_sign3Array[index] * (24.0 * m_cosThetaQuarticArray[index] - 8.0 * m_cosThetaQuadraticArray[index] - 1.0) - m_sign4Array[index]);
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
+                        index = i * m_outputDimesion + labelValue;
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda);
+                        m_row->AssignRowSliceValuesOf(weight, labelValue, 1);
+                        Matrix<ElemType>::Scale(-YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
 
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
+                        coeff_w = m_sign3Array[index] * (32.0 * m_cosThetaCubicArray[index] - 16.0 * m_cosThetaArray[index]);
+                        coeff_x = 1.0 / (-m_inputMagnitudeArray[i]) * (m_sign3Array[index] * (24.0 * m_cosThetaQuarticArray[index] - 8.0 * m_cosThetaQuadraticArray[index] - 1.0) - m_sign4Array[index]);
+                        coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
+                        coeff_w /= coeff_norm;
+                        coeff_x /= coeff_norm;
 
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
-                            }
-                        }
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
+                        m_row->AssignRowSliceValuesOf(weight, labelValue, 1);
+                        Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
+
+                        YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
+                        m_row->AssignRowSliceValuesOf(X.Transpose(), i, 1);
+                        Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
+                        m_X_T->AddToRowSliceValuesOf(*m_row, i, 1);
                     }
                     Matrix<ElemType>::ScaleAndAdd(1.0, m_X_T->Transpose(), X_gradient);
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), weight, true, Gradient(), false, 1.0, X_gradient, nullptr);
                     break;
                 }
                 default:
@@ -518,6 +494,7 @@ public:
                 m_tempMatrix->SetValue(-2.0); // Only use m_tempMatrix to be a temporary scalar.
                 Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
 
+                m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
                 m_cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
                 m_sign1Array = m_sign1->CopyToArray();
                 m_sign2Array = m_sign2->CopyToArray();
@@ -544,6 +521,7 @@ public:
                 Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign4);
 
                 m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
+                m_cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
                 m_cosThetaQuarticArray = m_cosThetaQuartic->CopyToArray();
                 m_sign3Array = m_sign3->CopyToArray();
                 m_sign4Array = m_sign4->CopyToArray();
@@ -564,33 +542,6 @@ public:
             m_labelArray = m_label->CopyToArray();
             m_inputMagnitudeArray = m_inputMagnitude->CopyToArray();
             m_cosThetaArray = m_cosTheta->CopyToArray();
-
-            switch (m_marginCoefficient)
-            {
-                case 2:
-                {
-                    m_sign0Array = m_sign0->CopyToArray();
-                    m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
-                    break;
-                }
-                case 3:
-                {
-                    m_sign1Array = m_sign1->CopyToArray();
-                    m_sign2Array = m_sign2->CopyToArray();
-                    m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
-                    m_cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
-                    break;
-                }
-                case 4:
-                {
-                    m_sign3Array = m_sign3->CopyToArray();
-                    m_sign4Array = m_sign4->CopyToArray();
-                    m_cosThetaQuadraticArray = m_cosThetaQuadratic->CopyToArray();
-                    m_cosThetaCubicArray = m_cosThetaCubic->CopyToArray();
-                    m_cosThetaQuarticArray = m_cosThetaQuartic->CopyToArray();
-                    break;
-                }
-            }
         }
 
         size_t labelValue = 0;
