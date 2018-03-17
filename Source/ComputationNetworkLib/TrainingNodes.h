@@ -20,11 +20,6 @@
 #include <list>
 #include <memory>
 #include <random>
-#include <cuda.h>
-#include <cuda_runtime.h>
-#include <curand.h>
-#include <curand_kernel.h>
-#include "cublas_v2.h"
 
 namespace Microsoft { namespace MSR { namespace CNTK {
 
