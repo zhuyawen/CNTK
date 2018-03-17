@@ -1594,7 +1594,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ImageRecognitionAppCS", "Te
 		{C5E944BA-A7C4-482F-BE01-077A7DFC159C} = {C5E944BA-A7C4-482F-BE01-077A7DFC159C}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImageRecognitionLib", "Tests\EndToEndTests\EvalClientTests\UWPImageRecognitionTest\ImageRecognizerLib\ImageRecognizerLib.vcxproj", "{C5E944BA-A7C4-482F-BE01-077A7DFC159C}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ImageRecognizerLib", "Tests\EndToEndTests\EvalClientTests\UWPImageRecognitionTest\ImageRecognizerLib\ImageRecognizerLib.vcxproj", "{C5E944BA-A7C4-482F-BE01-077A7DFC159C}"
 	ProjectSection(ProjectDependencies) = postProject
 		{E5606ECE-48CA-4464-BB12-09D81D02B9EF} = {E5606ECE-48CA-4464-BB12-09D81D02B9EF}
 	EndProjectSection
@@ -1619,6 +1619,8 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ProposalLayerLib", "Example
 	ProjectSection(ProjectDependencies) = postProject
 		{E5606ECE-48CA-4464-BB12-09D81D02B9EF} = {E5606ECE-48CA-4464-BB12-09D81D02B9EF}
 	EndProjectSection
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "NewFolder1", "NewFolder1", "{5B38A400-C067-4203-9F5B-50E54079DC9E}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -2542,5 +2544,6 @@ Global
 		{0DF2109B-BB85-4718-82DE-1C0536D4F2C3} = {B3B46744-DBB5-42C2-BAD7-9151D9486045}
 		{3631994A-59E6-4CD6-99A4-6D332F8DABE2} = {3BF56127-6F0F-41CF-BFCE-31165A0A5E73}
 		{91EA9F28-B9B6-4FC7-A47D-9838F5915700} = {3631994A-59E6-4CD6-99A4-6D332F8DABE2}
+		{5B38A400-C067-4203-9F5B-50E54079DC9E} = {DD043083-71A4-409A-AA91-F9C548DCF7EC}
 	EndGlobalSection
 EndGlobal

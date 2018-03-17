@@ -292,7 +292,7 @@ namespace CNTK
         static const std::wstring AttributeNameBias;
         static const std::wstring AttributeNameDepthRadius;
         static const std::wstring AttributeNameCustomAttributes;
-        static const std::wstring AttributeMarginInnerProductOutputDimesion;
+        static const std::wstring AttributeMarginInnerProductOutputDimension;
         static const std::wstring AttributeMarginInnerProductBase;
         static const std::wstring AttributeMarginInnerProductGamma;
         static const std::wstring AttributeMarginInnerProductPower;

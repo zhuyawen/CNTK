@@ -99,7 +99,7 @@ namespace CNTK
     /*static*/ const std::wstring PrimitiveFunction::AttributeNameBias = L"bias";
     /*static*/ const std::wstring PrimitiveFunction::AttributeNameDepthRadius = L"depthRadius";
     /*static*/ const std::wstring PrimitiveFunction::AttributeNameCustomAttributes = L"customAttributes";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductOutputDimesion = L"marginInnerProductOutputDimesion";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductOutputDimension = L"marginInnerProductOutputDimension";
     /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductBase = L"marginInnerProductOutputBase";
     /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductGamma = L"marginInnerProductOutputGamma";
     /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductPower = L"marginInnerProductOutputPower";

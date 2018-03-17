@@ -4955,6 +4955,106 @@ void Matrix<ElemType>::BatchNormalizationBackward(const Matrix<ElemType>& in, Ma
                             NOT_IMPLEMENTED);
 }
 
+
+
+
+#pragma region Asoftmax
+
+template <class ElemType>
+/*static*/ void Matrix<ElemType>::AsoftmaxForward2(ElemType lambda, size_t minibatchSize, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& value, const Matrix<ElemType>& inputMagnitude,
+    const Matrix<ElemType>& cosThetaQuadratic, const Matrix<ElemType>& sign0)
+{
+    DISPATCH_MATRIX_ON_FLAG(&value,
+                            &value,
+                            CPUMatrix<ElemType>::AsoftmaxForward2(lambda, minibatchSize, outputDimension, *(label.m_CPUMatrix), *(value.m_CPUMatrix), *(inputMagnitude.m_CPUMatrix),
+                            *(cosThetaQuadratic.m_CPUMatrix), *(sign0.m_CPUMatrix)),
+                            GPUMatrix<ElemType>::AsoftmaxForward2(lambda, minibatchSize, outputDimension, *(label.m_GPUMatrix), *(value.m_GPUMatrix), *(inputMagnitude.m_GPUMatrix),
+                            *(cosThetaQuadratic.m_GPUMatrix), *(sign0.m_GPUMatrix)),
+                            NOT_IMPLEMENTED,
+                            NOT_IMPLEMENTED
+    );
+}
+
+template <class ElemType>
+/*static*/ void Matrix<ElemType>::AsoftmaxForward3(ElemType lambda, size_t minibatchSize, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& value, const Matrix<ElemType>& inputMagnitude,
+    const Matrix<ElemType>& cosTheta, const Matrix<ElemType>& cosThetaCubic, const Matrix<ElemType>& sign1, const Matrix<ElemType>& sign2)
+{
+    DISPATCH_MATRIX_ON_FLAG(&value,
+                            &value,
+                            CPUMatrix<ElemType>::AsoftmaxForward3(lambda, minibatchSize, outputDimension, *(label.m_CPUMatrix), *(value.m_CPUMatrix), *(inputMagnitude.m_CPUMatrix),
+                            *(cosTheta.m_CPUMatrix), *(cosThetaCubic.m_CPUMatrix), *(sign1.m_CPUMatrix), *(sign2.m_CPUMatrix)),
+                            GPUMatrix<ElemType>::AsoftmaxForward3(lambda, minibatchSize, outputDimension, *(label.m_GPUMatrix), *(value.m_GPUMatrix), *(inputMagnitude.m_GPUMatrix),
+                            *(cosTheta.m_GPUMatrix), *(cosThetaCubic.m_GPUMatrix), *(sign1.m_GPUMatrix), *(sign2.m_GPUMatrix)),
+                            NOT_IMPLEMENTED,
+                            NOT_IMPLEMENTED
+    );
+}
+
+template <class ElemType>
+/*static*/ void Matrix<ElemType>::AsoftmaxForward4(ElemType lambda, size_t minibatchSize, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& value, const Matrix<ElemType>& inputMagnitude,
+    const Matrix<ElemType>& cosThetaQuadratic, const Matrix<ElemType>& cosThetaQuartic, const Matrix<ElemType>& sign3, const Matrix<ElemType>& sign4)
+{
+    DISPATCH_MATRIX_ON_FLAG(&value,
+                            &value,
+                            CPUMatrix<ElemType>::AsoftmaxForward3(lambda, minibatchSize, outputDimension, *(label.m_CPUMatrix), *(value.m_CPUMatrix), *(inputMagnitude.m_CPUMatrix),
+                            *(cosThetaQuadratic.m_CPUMatrix), *(cosThetaQuartic.m_CPUMatrix), *(sign3.m_CPUMatrix), *(sign4.m_CPUMatrix)),
+                            GPUMatrix<ElemType>::AsoftmaxForward3(lambda, minibatchSize, outputDimension, *(label.m_GPUMatrix), *(value.m_GPUMatrix), *(inputMagnitude.m_GPUMatrix),
+                            *(cosThetaQuadratic.m_GPUMatrix), *(cosThetaQuartic.m_GPUMatrix), *(sign3.m_GPUMatrix), *(sign4.m_GPUMatrix)),
+                            NOT_IMPLEMENTED,
+                            NOT_IMPLEMENTED
+    );
+}
+
+template <class ElemType>
+/*static*/ void Matrix<ElemType>::AsoftmaxBackward2(ElemType lambda, size_t inputDimension, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& gradient, const Matrix<ElemType>& X_gradient, const Matrix<ElemType>& inputMagnitude, const Matrix<ElemType>& X, const Matrix<ElemType>& weight,
+    const Matrix<ElemType>& cosTheta, const Matrix<ElemType>& cosThetaQuadratic, const Matrix<ElemType>& sign0)
+{
+    DISPATCH_MATRIX_ON_FLAG(&X_gradient,
+                            &X_gradient,
+                            CPUMatrix<ElemType>::AsoftmaxBackward2(lambda, inputDimension, outputDimension, *(label.m_CPUMatrix), *(gradient.m_CPUMatrix), *(X_gradient.m_CPUMatrix), *(inputMagnitude.m_CPUMatrix), *(X.m_CPUMatrix), *(weight.m_CPUMatrix),
+                            *(cosTheta.m_CPUMatrix), *(cosThetaQuadratic.m_CPUMatrix), *(sign0.m_CPUMatrix)),
+                            GPUMatrix<ElemType>::AsoftmaxBackward2(lambda, inputDimension, outputDimension, *(label.m_GPUMatrix), *(gradient.m_GPUMatrix), *(X_gradient.m_GPUMatrix), *(inputMagnitude.m_GPUMatrix), *(X.m_GPUMatrix), *(weight.m_GPUMatrix),
+                            *(cosTheta.m_GPUMatrix), *(cosThetaQuadratic.m_GPUMatrix), *(sign0.m_GPUMatrix)),
+                            NOT_IMPLEMENTED,
+                            NOT_IMPLEMENTED
+    );
+}
+
+template <class ElemType>
+/*static*/ void Matrix<ElemType>::AsoftmaxBackward3(ElemType lambda, size_t inputDimension, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& gradient, const Matrix<ElemType>& X_gradient, const Matrix<ElemType>& inputMagnitude, const Matrix<ElemType>& X, const Matrix<ElemType>& weight,
+    const Matrix<ElemType>& cosThetaQuadratic, const Matrix<ElemType>& cosThetaCubic, const Matrix<ElemType>& sign1, const Matrix<ElemType>& sign2)
+{
+    DISPATCH_MATRIX_ON_FLAG(&X_gradient,
+                            &X_gradient,
+                            CPUMatrix<ElemType>::AsoftmaxBackward3(lambda, inputDimension, outputDimension, *(label.m_CPUMatrix), *(gradient.m_CPUMatrix), *(X_gradient.m_CPUMatrix), *(inputMagnitude.m_CPUMatrix), *(X.m_CPUMatrix), *(weight.m_CPUMatrix),
+                            *(cosThetaQuadratic.m_CPUMatrix), *(cosThetaCubic.m_CPUMatrix), *(sign1.m_CPUMatrix), *(sign2.m_CPUMatrix)),
+                            GPUMatrix<ElemType>::AsoftmaxBackward3(lambda, inputDimension, outputDimension, *(label.m_GPUMatrix), *(gradient.m_GPUMatrix), *(X_gradient.m_GPUMatrix), *(inputMagnitude.m_GPUMatrix), *(X.m_GPUMatrix), *(weight.m_GPUMatrix),
+                            *(cosThetaQuadratic.m_GPUMatrix), *(cosThetaCubic.m_GPUMatrix), *(sign1.m_GPUMatrix), *(sign2.m_GPUMatrix)),
+                            NOT_IMPLEMENTED,
+                            NOT_IMPLEMENTED
+    );
+}
+
+template <class ElemType>
+/*static*/ void Matrix<ElemType>::AsoftmaxBackward4(ElemType lambda, size_t inputDimension, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& gradient, const Matrix<ElemType>& X_gradient, const Matrix<ElemType>& inputMagnitude, const Matrix<ElemType>& X, const Matrix<ElemType>& weight,
+    const Matrix<ElemType>& cosTheta, const Matrix<ElemType>& cosThetaQuadratic, const Matrix<ElemType>& cosThetaCubic, const Matrix<ElemType>& cosThetaQuartic, const Matrix<ElemType>& sign3, const Matrix<ElemType>& sign4)
+{
+    DISPATCH_MATRIX_ON_FLAG(&X_gradient,
+                            &X_gradient,
+                            CPUMatrix<ElemType>::AsoftmaxBackward4(lambda, inputDimension, outputDimension, *(label.m_CPUMatrix), *(gradient.m_CPUMatrix), *(X_gradient.m_CPUMatrix), *(inputMagnitude.m_CPUMatrix), *(X.m_CPUMatrix), *(weight.m_CPUMatrix),
+                            *(cosTheta.m_CPUMatrix), *(cosThetaQuadratic.m_CPUMatrix), *(cosThetaCubic.m_CPUMatrix), *(cosThetaQuartic.m_CPUMatrix), *(sign3.m_CPUMatrix), *(sign4.m_CPUMatrix)),
+                            GPUMatrix<ElemType>::AsoftmaxBackward4(lambda, inputDimension, outputDimension, *(label.m_GPUMatrix), *(gradient.m_GPUMatrix), *(X_gradient.m_GPUMatrix), *(inputMagnitude.m_GPUMatrix), *(X.m_GPUMatrix), *(weight.m_GPUMatrix),
+                            *(cosTheta.m_GPUMatrix), *(cosThetaQuadratic.m_GPUMatrix), *(cosThetaCubic.m_GPUMatrix), *(cosThetaQuartic.m_GPUMatrix), *(sign3.m_GPUMatrix), *(sign4.m_GPUMatrix)),
+                            NOT_IMPLEMENTED,
+                            NOT_IMPLEMENTED
+    );
+}
+
+#pragma endregion
+
+
+
+
 template <class ElemType>
 void Matrix<ElemType>::RNNForward(const Matrix<ElemType> &inputX, const Matrix<ElemType> &paramW, size_t xDim, size_t yDim, const vector<size_t>& numSequencesForFrame, const RnnAttributes& rnnAttributes, Matrix<ElemType>& reserve, Matrix<ElemType>& workspace)
 {

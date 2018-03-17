@@ -466,9 +466,9 @@ shared_ptr<ComputationNode<ElemType>> ComputationNetworkBuilder<ElemType>::Squar
 
 
 template <class ElemType>
-shared_ptr<ComputationNode<ElemType>> ComputationNetworkBuilder<ElemType>::MarginInnerProduct(const ComputationNodePtr a, const ComputationNodePtr b, const ComputationNodePtr c, size_t outputDimesion, ElemType base, ElemType gamma, ElemType power, ElemType lambdaMin, size_t marginCoefficient, const std::wstring nodeName)
+shared_ptr<ComputationNode<ElemType>> ComputationNetworkBuilder<ElemType>::MarginInnerProduct(const ComputationNodePtr a, const ComputationNodePtr b, const ComputationNodePtr c, size_t outputDimension, ElemType base, ElemType gamma, ElemType power, ElemType lambdaMin, size_t marginCoefficient, const std::wstring nodeName)
 {
-    return net.AddNodeToNetAndAttachInputs(New<MarginInnerProductNode<ElemType>>(net.GetDeviceId(), nodeName, outputDimesion, base, gamma, power, lambdaMin, marginCoefficient), { a, b, c });
+    return net.AddNodeToNetAndAttachInputs(New<MarginInnerProductNode<ElemType>>(net.GetDeviceId(), nodeName, outputDimension, base, gamma, power, lambdaMin, marginCoefficient), { a, b, c });
 }
 
 

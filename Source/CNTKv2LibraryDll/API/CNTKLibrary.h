@@ -4103,7 +4103,7 @@ namespace CNTK
 
 
 
-    CNTK_API FunctionPtr MarginInnerProduct(const Variable& prediction, const Variable& targets, const Variable& weight, size_t outputDimesion, double base, double gamma, double power, double lambdaMin, size_t marginCoefficient, const std::wstring& name = L"");
+    CNTK_API FunctionPtr MarginInnerProduct(const Variable& prediction, const Variable& targets, const Variable& weight, size_t outputDimension, double base, double gamma, double power, double lambdaMin, size_t marginCoefficient, const std::wstring& name = L"");
 
 
 

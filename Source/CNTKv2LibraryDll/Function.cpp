@@ -1796,11 +1796,11 @@ namespace CNTK
 
 
 
-    FunctionPtr MarginInnerProduct(const Variable& features, const Variable& labels, const Variable& weight, size_t outputDimesion, double base, double gamma, double power, double lambdaMin, size_t marginCoefficient, const std::wstring& name)
+    FunctionPtr MarginInnerProduct(const Variable& features, const Variable& labels, const Variable& weight, size_t outputDimension, double base, double gamma, double power, double lambdaMin, size_t marginCoefficient, const std::wstring& name)
     {
         std::vector<Variable> operands = { features, labels, weight };
         auto additionalProperties = Dictionary();
-        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductOutputDimesion] = outputDimesion;
+        additionalProperties[PrimitiveFunction::AttributeMarginInnerProductOutputDimension] = outputDimension;
         additionalProperties[PrimitiveFunction::AttributeMarginInnerProductBase] = base;
         additionalProperties[PrimitiveFunction::AttributeMarginInnerProductGamma] = gamma;
         additionalProperties[PrimitiveFunction::AttributeMarginInnerProductPower] = power;

@@ -64,7 +64,7 @@
       <AdditionalIncludeDirectories>$(MathIncludePath);$(BOOST_INCLUDE_PATH);$(SolutionDir)Source\Common\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4819</DisableSpecificWarnings>
       <AdditionalOptions>/d2Zi+ /bigobj %(AdditionalOptions)</AdditionalOptions>
-      <TreatWarningAsError>true</TreatWarningAsError>
+      <TreatWarningAsError>false</TreatWarningAsError>
       <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
