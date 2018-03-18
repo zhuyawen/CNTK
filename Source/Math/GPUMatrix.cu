@@ -3645,8 +3645,7 @@ void GPUMatrix<ElemType>::AsoftmaxBackward2(ElemType lambda, size_t inputDimensi
                                             const GPUMatrix<ElemType>& cosTheta, const GPUMatrix<ElemType>& cosThetaQuadratic, const GPUMatrix<ElemType>& sign0)
 {
     SyncGuard syncGuard;
-    size_t XElementNum = X_gradient.GetNumElements();
-    GridDim grid(XElementNum);
+    GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward2<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, inputDimension, outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
         cosTheta.Data(), cosThetaQuadratic.Data(), sign0.Data());
 }
@@ -3681,8 +3680,7 @@ void GPUMatrix<ElemType>::AsoftmaxBackward3(ElemType lambda, size_t inputDimensi
                                             const GPUMatrix<ElemType>& cosThetaQuadratic, const GPUMatrix<ElemType>& cosThetaCubic, const GPUMatrix<ElemType>& sign1, const GPUMatrix<ElemType>& sign2)
 {
     SyncGuard syncGuard;
-    size_t XElementNum = X_gradient.GetNumElements();
-    GridDim grid(XElementNum * 2);
+    GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward3<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, inputDimension, outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
         cosThetaQuadratic.Data(), cosThetaCubic.Data(), sign1.Data(), sign2.Data());
 }
@@ -3717,8 +3715,7 @@ void GPUMatrix<ElemType>::AsoftmaxBackward4(ElemType lambda, size_t inputDimensi
                                             const GPUMatrix<ElemType>& cosTheta, const GPUMatrix<ElemType>& cosThetaQuadratic, const GPUMatrix<ElemType>& cosThetaCubic, const GPUMatrix<ElemType>& cosThetaQuartic, const GPUMatrix<ElemType>& sign3, const GPUMatrix<ElemType>& sign4)
 {
     SyncGuard syncGuard;
-    size_t XElementNum = X_gradient.GetNumElements();
-    GridDim grid(XElementNum * 2);
+    GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward4<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, inputDimension, outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
         cosTheta.Data(), cosThetaQuadratic.Data(), cosThetaCubic.Data(), cosThetaQuartic.Data(), sign3.Data(), sign4.Data());
 }

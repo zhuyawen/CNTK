@@ -577,7 +577,7 @@ public:
 
 
 #pragma region Asoftmax
-    static void AsoftmaxForward2(ElemType lambda, size_t minibatchSize, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>&  value, const Matrix<ElemType>& inputMagnitude,
+    static void AsoftmaxForward2(ElemType lambda, size_t minibatchSize, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& value, const Matrix<ElemType>& inputMagnitude,
         const Matrix<ElemType>& cosThetaQuadratic, const Matrix<ElemType>& sign0);
 
     static void AsoftmaxForward3(ElemType lambda, size_t minibatchSize, size_t outputDimension, const Matrix<ElemType>& label, const Matrix<ElemType>& value, const Matrix<ElemType>& inputMagnitude,
