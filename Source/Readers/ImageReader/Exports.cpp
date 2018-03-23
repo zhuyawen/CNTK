@@ -16,6 +16,7 @@
 #include "CorpusDescriptor.h"
 #include "Base64ImageDeserializer.h"
 #include "V2Dependencies.h"
+#include "CustomImageTransformer.h"
 
 namespace CNTK {
 
@@ -73,6 +74,8 @@ extern "C" DATAREADER_API bool CreateTransformer(Transformer** transformer, cons
         *transformer = new TransposeTransformer(config);
     else if (type == L"Cast")
         *transformer = new CastTransformer(config);
+    else if (type == L"Custom")
+        *transformer = new CustomTransformer(config);
     else
         // Unknown type.
         return false;

@@ -2,7 +2,6 @@
 // Copyright (c) Microsoft. All rights reserved.
 // Licensed under the MIT license. See LICENSE.md file in the project root for full license information.
 //
-
 #include "stdafx.h"
 #include "ImageReader.h"
 #include "Config.h"
@@ -14,6 +13,7 @@
 #include "FramePacker.h"
 #include <omp.h>
 #include "TransformController.h"
+#include "CustomImageTransformer.h"
 
 namespace CNTK {
 
@@ -64,15 +64,26 @@ ImageReader::ImageReader(const ConfigParameters& config)
     ConfigParameters featureStream = config(featureName);
 
     std::vector<Transformation> transformations;
-    transformations.push_back(Transformation{ std::make_shared<CropTransformer>(featureStream), featureName });
-    transformations.push_back(Transformation{ std::make_shared<ScaleTransformer>(featureStream), featureName });
-    transformations.push_back(Transformation{ std::make_shared<ColorTransformer>(featureStream), featureName });
-    transformations.push_back(Transformation{ std::make_shared<IntensityTransformer>(featureStream), featureName });
-    transformations.push_back(Transformation{ std::make_shared<MeanTransformer>(featureStream), featureName });
+    bool customFlag = false;
+    stringargvector flag;
+    flag = featureStream(L"customCrop", L"false");
+    if (flag[0] == L"true")
+        customFlag = true;
 
-    if (configHelper.GetDataFormat() == CHW)
+    if (customFlag)
+        transformations.push_back(Transformation{ std::make_shared<CustomTransformer>(featureStream), featureName });
+    else
     {
-        transformations.push_back(Transformation{ std::make_shared<TransposeTransformer>(featureStream), featureName });
+        transformations.push_back(Transformation{ std::make_shared<CropTransformer>(featureStream), featureName });
+        transformations.push_back(Transformation{ std::make_shared<ScaleTransformer>(featureStream), featureName });
+        transformations.push_back(Transformation{ std::make_shared<ColorTransformer>(featureStream), featureName });
+        transformations.push_back(Transformation{ std::make_shared<IntensityTransformer>(featureStream), featureName });
+        transformations.push_back(Transformation{ std::make_shared<MeanTransformer>(featureStream), featureName });
+
+        if (configHelper.GetDataFormat() == CHW)
+        {
+            transformations.push_back(Transformation{ std::make_shared<TransposeTransformer>(featureStream), featureName });
+        }
     }
 
     // We should always have cast at the end. 
