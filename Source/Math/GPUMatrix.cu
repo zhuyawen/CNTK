@@ -3630,10 +3630,6 @@ __global__ void _asoftmaxBackward2(ElemType lambda, size_t inputDimension, size_
     ElemType coeff_x = -1.0 / inputMagnitude[col] * (2.0 * sign0[index] * cosThetaQuadratic[index] + 1);
     ElemType coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
 
-    X_gradient[X_id] = 0;
-    for (size_t i(0), j(row * outputDimension), k(col * outputDimension); i < outputDimension; ++i, ++j, ++k)
-        X_gradient[X_id] += weight[j] * gradient[k];
-
     // From weight
     X_gradient[X_id] += weight[W_id] * gradient[index] / (1.0 + lambda) * (coeff_w / coeff_norm - 1);
     // From X
@@ -3644,6 +3640,7 @@ template <class ElemType>
 void GPUMatrix<ElemType>::AsoftmaxBackward2(ElemType lambda, size_t inputDimension, size_t outputDimension, const GPUMatrix<ElemType>& label, const GPUMatrix<ElemType>& gradient, const GPUMatrix<ElemType>& X_gradient, const GPUMatrix<ElemType>& inputMagnitude, const GPUMatrix<ElemType>& X, const GPUMatrix<ElemType>& weight,
                                             const GPUMatrix<ElemType>& cosTheta, const GPUMatrix<ElemType>& cosThetaQuadratic, const GPUMatrix<ElemType>& sign0)
 {
+    GPUMatrix<ElemType>::Multiply(weight, true, gradient, false, X_gradient);
     SyncGuard syncGuard;
     GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward2<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, inputDimension, outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
@@ -3665,10 +3662,6 @@ __global__ void _asoftmaxBackward3(ElemType lambda, size_t inputDimension, size_
     ElemType coeff_x = -1.0 / inputMagnitude[col] * (8.0 * sign1[index] * cosThetaCubic[index] - sign2[index]);
     ElemType coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
 
-    X_gradient[X_id] = 0;
-    for (size_t i(0), j(row * outputDimension), k(col * outputDimension); i < outputDimension; ++i, ++j, ++k)
-        X_gradient[X_id] += weight[j] * gradient[k];
-
     // From weight
     X_gradient[X_id] += weight[W_id] * gradient[index] / (1.0 + lambda) * (coeff_w / coeff_norm - 1);
     // From X
@@ -3679,6 +3672,7 @@ template <class ElemType>
 void GPUMatrix<ElemType>::AsoftmaxBackward3(ElemType lambda, size_t inputDimension, size_t outputDimension, const GPUMatrix<ElemType>& label, const GPUMatrix<ElemType>& gradient, const GPUMatrix<ElemType>& X_gradient, const GPUMatrix<ElemType>& inputMagnitude, const GPUMatrix<ElemType>& X, const GPUMatrix<ElemType>& weight,
                                             const GPUMatrix<ElemType>& cosThetaQuadratic, const GPUMatrix<ElemType>& cosThetaCubic, const GPUMatrix<ElemType>& sign1, const GPUMatrix<ElemType>& sign2)
 {
+    GPUMatrix<ElemType>::Multiply(weight, true, gradient, false, X_gradient);
     SyncGuard syncGuard;
     GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward3<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, inputDimension, outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
@@ -3700,10 +3694,6 @@ __global__ void _asoftmaxBackward4(ElemType lambda, size_t inputDimension, size_
     ElemType coeff_x = -1.0 / inputMagnitude[col] * (sign3[index] * (24.0 * cosThetaQuartic[index] - 8.0 * cosThetaQuadratic[index] - 1.0) - sign4[index]);
     ElemType coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
 
-    X_gradient[X_id] = 0;
-    for (size_t i(0), j(row * outputDimension), k(col * outputDimension); i < outputDimension; ++i, ++j, ++k)
-        X_gradient[X_id] += weight[j] * gradient[k];
-
     // From weight
     X_gradient[X_id] += weight[W_id] * gradient[index] / (1.0 + lambda) * (coeff_w / coeff_norm - 1);
     // From X
@@ -3714,6 +3704,7 @@ template <class ElemType>
 void GPUMatrix<ElemType>::AsoftmaxBackward4(ElemType lambda, size_t inputDimension, size_t outputDimension, const GPUMatrix<ElemType>& label, const GPUMatrix<ElemType>& gradient, const GPUMatrix<ElemType>& X_gradient, const GPUMatrix<ElemType>& inputMagnitude, const GPUMatrix<ElemType>& X, const GPUMatrix<ElemType>& weight,
                                             const GPUMatrix<ElemType>& cosTheta, const GPUMatrix<ElemType>& cosThetaQuadratic, const GPUMatrix<ElemType>& cosThetaCubic, const GPUMatrix<ElemType>& cosThetaQuartic, const GPUMatrix<ElemType>& sign3, const GPUMatrix<ElemType>& sign4)
 {
+    GPUMatrix<ElemType>::Multiply(weight, true, gradient, false, X_gradient);
     SyncGuard syncGuard;
     GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward4<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, inputDimension, outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
