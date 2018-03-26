@@ -5052,7 +5052,19 @@ template <class ElemType>
 
 #pragma endregion
 
-
+#pragma region AMsoftmax
+template <class ElemType>
+/*static*/ void Matrix<ElemType>::LabelAdd(const Matrix<ElemType>& label, ElemType bias, const Matrix<ElemType>& value)
+{
+    DISPATCH_MATRIX_ON_FLAG(&value,
+                            &value,
+                            CPUMatrix<ElemType>::LabelAdd(*(label.m_CPUMatrix), bias, *(value.m_CPUMatrix)),
+                            GPUMatrix<ElemType>::LabelAdd(*(label.m_GPUMatrix), bias, *(value.m_GPUMatrix)),
+                            NOT_IMPLEMENTED,
+                            NOT_IMPLEMENTED
+    );
+}
+#pragma endregion
 
 
 template <class ElemType>

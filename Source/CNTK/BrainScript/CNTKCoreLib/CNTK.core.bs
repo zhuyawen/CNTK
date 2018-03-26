@@ -63,7 +63,21 @@ MarginInnerProductLayer {inputDimension, outputDimension, base, gamma, power, la
     apply (labelSequence, outProbVectorSequence) = MarginInnerProduct(labelSequence, outProbVectorSequence, W, marginInnerProductOutputDimension=outputDimension, marginInnerProductBase=base, marginInnerProductGamma=gamma, marginInnerProductPower=power, marginInnerProductLambdaMin=lambdaMin, marginCoefficient=coefficient)
 }.apply
 
+# FeatureNormalizeLayer -- create a feature normalization layer
+# Note: outputDimension may describe a tensor as well.
+FeatureNormalizeLayer {normalizeType} =
+{
+    apply (feature) = FeatureNormalize(feature, normalizeType=normalizeType)
+}.apply
 
+# AdditiveFullConnectionLayer -- create a label-specific-add full connection layer
+# Note: outputDimension may describe a tensor as well.
+AdditiveFullConnectionLayer {inputDimension, outputDimension, weightNormalize=true, bias, annealBias=false, biasBase=0, biasGamma=0, biasPower=0, biasMin=0, biasMax=0, init='glorotUniform', initValueScale=1} =
+{
+    W = ParameterTensor {_ConcatArrays (outputDimension, inputDimension), init=init, initValueScale=initValueScale}
+
+    apply (labelSequence, outProbVectorSequence) = AdditiveFullConnection(labelSequence, outProbVectorSequence, W, outputDimension=outputDimension, weightNormalize=weightNormalize, bias=bias, annealBias=annealBias, biasBase=biasBase, biasGamma=biasGamma, biasPower=biasPower, biasMin=biasMin, biasMax=biasMax)
+}.apply
 
 # DenseLayer -- create a fully-connected layer with optional non-linearity
 DenseLayer{outDim, bias = true, activation=(x=>x), init='glorotUniform', initValueScale=1, inputRank=None, mapRank=None, initBias=0} = Sequential ( LinearLayer{outDim, bias=bias, init=init, initValueScale=initValueScale, inputRank=inputRank, mapRank=mapRank, initBias=initBias} : activation )
@@ -371,6 +385,8 @@ Abs                     = CNTK2.Abs
 Ceil                    = CNTK2.Ceil
 CrossEntropyWithSoftmax = CNTK2.CrossEntropyWithSoftmax
 MarginInnerProduct      = CNTK2.MarginInnerProduct
+FeatureNormalize        = CNTK2.FeatureNormalize
+AdditiveFullConnection  = CNTK2.AdditiveFullConnection
 Dropout                 = CNTK2.Dropout
 ElementTimes            = CNTK2.ElementTimes
 ElementDivide           = CNTK2.ElementDivide
@@ -473,6 +489,18 @@ CNTK2 = [
     MarginInnerProduct(labelSequence, outProbVectorSequence, W, marginInnerProductOutputDimension=0, marginInnerProductBase=0, marginInnerProductGamma=0, marginInnerProductPower=0, marginInnerProductLambdaMin=0, marginCoefficient=2, tag='') = 
         new ComputationNode [ operation = 'MarginInnerProduct' ; inputs = _AsNodes (labelSequence : outProbVectorSequence : W) /*plus the function args*/ ]
 
+
+    #
+    # FeatureNormalize node
+    #
+    FeatureNormalize(feature, normalizeType=2, tag='') = 
+        new ComputationNode [ operation = 'FeatureNormalize' ; inputs = _AsNodes (feature) /*plus the function args*/ ]
+
+    #
+    # AdditiveFullConnection node
+    #
+    AdditiveFullConnection(labelSequence, outProbVectorSequence, W, outputDimension=0, weightNormalize=true, bias=0, annealBias=false, biasBase=0, biasGamma=0, biasPower=0, biasMin=0, biasMax=0,tag='') = 
+        new ComputationNode [ operation = 'AdditiveFullConnection' ; inputs = _AsNodes (labelSequence : outProbVectorSequence : W) /*plus the function args*/ ]
 
 
     // 5. Elementwise operations.

@@ -596,6 +596,9 @@ public:
         const Matrix<ElemType>& cosTheta, const Matrix<ElemType>& cosThetaQuadratic, const Matrix<ElemType>& cosThetaCubic, const Matrix<ElemType>& cosThetaQuartic, const Matrix<ElemType>& sign3, const Matrix<ElemType>& sign4);
 #pragma endregion
 
+#pragma region AMsoftmax
+    static void LabelAdd(const Matrix<ElemType>& label, ElemType bias, const Matrix<ElemType>& value);
+#pragma endregion
 
 
     void RNNForward(const Matrix<ElemType>& inputX, const Matrix<ElemType>& paramW, size_t xDim, size_t yDim, const vector<size_t>& numSequencesForFrame, const struct RnnAttributes& rnnAttributes, Matrix<ElemType>& reserve, Matrix<ElemType>& workspace);

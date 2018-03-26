@@ -6,14 +6,12 @@
 #include <boost/random/uniform_int_distribution.hpp>
 #include <boost/random/uniform_real_distribution.hpp>
 
-#include "Transformer.h"
 #include "ConcStack.h"
 #include "Config.h"
 #include "ImageTransformers.h"
 using namespace std;
 
 namespace CNTK {
-
     class RandFloat
     {
     public:
@@ -242,8 +240,4 @@ namespace CNTK {
             RandFloat m_saturation;
             RandFloat m_lightness;
     };
-
-#ifdef __DEBUG__
-    static int DebugImageId;
-#endif
 }

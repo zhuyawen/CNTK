@@ -113,6 +113,8 @@ namespace CNTK
         {PrimitiveOpType::Pad, L"Pad"},
         {PrimitiveOpType::Crop, L"Crop"},
         {PrimitiveOpType::MarginInnerProduct, L"MarginInnerProduct"},
+        {PrimitiveOpType::FeatureNormalize, L"FeatureNormalize"},
+        {PrimitiveOpType::AdditiveFullConnection, L"AdditiveFullConnection"},
     };
 
     inline const std::wstring& PrimitiveOpTypeName(PrimitiveOpType opType)
@@ -298,6 +300,16 @@ namespace CNTK
         static const std::wstring AttributeMarginInnerProductPower;
         static const std::wstring AttributeMarginInnerProductLambdaMin;
         static const std::wstring AttributeMarginInnerProductMarginCoefficient;
+        static const std::wstring AttributeFeatureNormalizeNormalizeType;
+        static const std::wstring AttributeAdditiveFullConnectionOutputDimension;
+        static const std::wstring AttributeAdditiveFullConnectionWeightNormalize;
+        static const std::wstring AttributeAdditiveFullConnectionBias;
+        static const std::wstring AttributeAdditiveFullConnectionAnnealBias;
+        static const std::wstring AttributeAdditiveFullConnectionBiasBase;
+        static const std::wstring AttributeAdditiveFullConnectionBiasGamma;
+        static const std::wstring AttributeAdditiveFullConnectionBiasPower;
+        static const std::wstring AttributeAdditiveFullConnectionBiasMin;
+        static const std::wstring AttributeAdditiveFullConnectionBiasMax;
 
     protected:
         PrimitiveFunction(PrimitiveOpType op, const std::vector<Variable>& inputs, Dictionary&& functionConfig, const std::wstring& functionName, const std::wstring& uid)

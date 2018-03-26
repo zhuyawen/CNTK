@@ -110,6 +110,8 @@ namespace CNTK
             (op == PrimitiveOpType::ReduceElements &&  anyOfAxesInReduction([](const Axis& axis) { return axis == Axis::AllAxes(); })) ||
             (op == PrimitiveOpType::SquaredError) ||
             (op == PrimitiveOpType::MarginInnerProduct) ||
+            (op == PrimitiveOpType::FeatureNormalize) ||
+            (op == PrimitiveOpType::AdditiveFullConnection) ||
             (op == PrimitiveOpType::CrossEntropyWithSoftmax) ||
             (op == PrimitiveOpType::EditDistanceError) ||
             (op == PrimitiveOpType::ClassificationError) ||
@@ -797,6 +799,18 @@ namespace CNTK
                             break;
                         }
                         case PrimitiveOpType::MarginInnerProduct:
+                        {
+                            assert(m_inputs.size() == 3);
+                            outputShape = NDShape{};
+                            break;
+                        }
+                        case PrimitiveOpType::FeatureNormalize:
+                        {
+                            assert(m_inputs.size() == 1);
+                            outputShape = NDShape{};
+                            break;
+                        }
+                        case PrimitiveOpType::AdditiveFullConnection:
                         {
                             assert(m_inputs.size() == 3);
                             outputShape = NDShape{};

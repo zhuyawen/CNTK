@@ -343,4 +343,6 @@ template class BatchNormalizationNode<double>;
 template class MarginInnerProductNode<float>;
 template class MarginInnerProductNode<double>;
 
+template class AdditiveFullConnectionNode<float>;
+template class AdditiveFullConnectionNode<double>;
 }}}

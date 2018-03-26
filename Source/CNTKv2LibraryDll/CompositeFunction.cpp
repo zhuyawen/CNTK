@@ -983,6 +983,26 @@ namespace CNTK
                     computationNodePtr = New<MarginInnerProductNode<ElementType>>(network->GetDeviceId(), internalNodeName, outputDimension, base, gamma, power, lambdaMin, marginCoefficient);
                     break;
                 }
+                case PrimitiveOpType::FeatureNormalize:
+                {
+                    auto normalizeType = functionConfig[PrimitiveFunction::AttributeFeatureNormalizeNormalizeType].Value<size_t>();
+                    computationNodePtr = New<FeatureNormalizeNode<ElementType>>(network->GetDeviceId(), internalNodeName, normalizeType);
+                    break;
+                }
+                case PrimitiveOpType::AdditiveFullConnection:
+                {
+                    auto outputDimension = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionOutputDimension].Value<size_t>();
+                    auto weightNormalize = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionWeightNormalize].Value<bool>();
+                    auto bias = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionBias].Value<ElementType>();
+                    auto annealBias = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionAnnealBias].Value<bool>();
+                    auto biasBase = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionBiasBase].Value<ElementType>();
+                    auto biasGamma = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionBiasGamma].Value<ElementType>();
+                    auto biasPower = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionBiasPower].Value<ElementType>();
+                    auto biasMin = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionBiasMin].Value<ElementType>();
+                    auto biasMax = functionConfig[PrimitiveFunction::AttributeAdditiveFullConnectionBiasMax].Value<ElementType>();
+                    computationNodePtr = New<AdditiveFullConnectionNode<ElementType>>(network->GetDeviceId(), internalNodeName, outputDimension, weightNormalize, bias, annealBias, biasBase, biasGamma, biasPower, biasMin, biasMax);
+                    break;
+                }
                 case PrimitiveOpType::CrossEntropyWithSoftmax:
                     computationNodePtr = New<CrossEntropyWithSoftmaxNode<ElementType>>(network->GetDeviceId(), internalNodeName);
                     break;

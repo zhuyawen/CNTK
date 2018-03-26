@@ -5254,7 +5254,23 @@ void CPUMatrix<ElemType>::AsoftmaxBackward4(ElemType lambda, size_t inputDimensi
 
 #pragma endregion
 
+#pragma region AMsoftmax
+template <class ElemType>
+void CPUMatrix<ElemType>::LabelAdd(const CPUMatrix<ElemType>& label, ElemType bias, const CPUMatrix<ElemType>& value)
+{
+    size_t minibatchSize = value.GetNumCols();
+    size_t outputDimension = value.GetNumRows();
+    size_t labelValue;
+    ElemType* labelPtr = label.Data();
+    ElemType* valuePtr = value.Data();
 
+    for (size_t i(0); i < minibatchSize; ++i)
+    {
+        labelValue = static_cast<size_t>(labelPtr[i]);
+        valuePtr[i * outputDimension + labelValue] += bias;
+    }
+}
+#pragma endregion
 
 
 

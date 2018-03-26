@@ -558,6 +558,11 @@ public:
                           const GPUMatrix<ElemType>& cosTheta, const GPUMatrix<ElemType>& cosThetaQuadratic, const GPUMatrix<ElemType>& cosThetaCubic, const GPUMatrix<ElemType>& cosThetaQuartic, const GPUMatrix<ElemType>& sign3, const GPUMatrix<ElemType>& sign4);
 #pragma endregion
 
+#pragma region AMsoftmax
+    static void LabelAdd(const GPUMatrix<ElemType>& label, ElemType bias, const GPUMatrix<ElemType>& value);
+#pragma endregion
+
+
 
 
     // RNN support functions

@@ -29,6 +29,9 @@ static const wstring RandomDistributionTypeNormal    = L"normal";
 static const wstring RandomDistributionTypeGumbel    = L"gumbel";
 static const wstring RandomDistributionTypeBernoulli = L"bernoulli";
 
+// Implements A-Softmax as described in:
+// SphereFace: DeepHypersphereEmbeddingforFaceRecognition [Weiyang Liu, Yandong Wen, Zhiding Yu, Ming Li, Bhiksha Raj, Le Song]
+// https://arxiv.org/abs/1704.08063
 template <class ElemType>
 class MarginInnerProductNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<3>
 {
@@ -299,16 +302,18 @@ public:
         auto X = InputRef(1).ValueFor(fr);
         auto& weight = InputRef(2).Value();
 
-        m_iter += 1;
+        ++m_iter;
         m_lambda = m_base * pow(1 + m_gamma * m_iter, -m_power);
         m_lambda = std::max(m_lambda, m_lambdaMin);
 
-        Matrix<ElemType>::InnerProduct(weight, weight, *m_weightMagnitude, false);
-        m_weightMagnitude->InplaceSqrt();
+        //Matrix<ElemType>::InnerProduct(weight, weight, *m_weightMagnitude, false);
+        //m_weightMagnitude->InplaceSqrt();
+        weight.VectorNorm2(*m_weightMagnitude, false);
         weight.ColumnElementDivideBy(*m_weightMagnitude);
 
-        Matrix<ElemType>::InnerProduct(X, X, *m_inputMagnitude, true);
-        m_inputMagnitude->InplaceSqrt();
+        //Matrix<ElemType>::InnerProduct(X, X, *m_inputMagnitude, true);
+        //m_inputMagnitude->InplaceSqrt();
+        X.VectorNorm2(*m_inputMagnitude, true);
         Matrix<ElemType>::Multiply(weight, false, X, false, *m_cosTheta);
         m_cosTheta->RowElementDivideBy(*m_inputMagnitude);
         // m_sign0 = sign(m_cosTheta)
@@ -536,6 +541,291 @@ private:
 
     //temp matrix
     shared_ptr<Matrix<ElemType>> m_tempMatrix; // Matrix(k,m)
+};
+
+// Implements AM-Softmax as described in:
+// Additive Margin Softmax for Face Verification [Feng Wang, Weiyang Liu, Haijun Liu, Jian Cheng]
+// https://arxiv.org/abs/1801.05599
+template <class ElemType>
+class FeatureNormalizeNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<1>
+{
+
+public:
+    typedef ComputationNodeNonLooping<ElemType> Base; UsingComputationNodeMembersBoilerplate;
+    static const std::wstring TypeName() { return L"FeatureNormalize"; }
+
+public:
+    FeatureNormalizeNode(const ScriptableObjects::IConfigRecordPtr configp) :
+        FeatureNormalizeNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"normalizeType"))
+    {
+        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
+        AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
+    }
+
+    FeatureNormalizeNode(DEVICEID_TYPE deviceId, const wstring& name, size_t normalizeType = 2)
+        : Base(deviceId, name), m_normalizeType(normalizeType)
+    {
+    }
+
+    virtual void UpdateFunctionMBSize() override
+    {
+        m_inputDimension = InputRef(0).Value().GetNumRows();
+        m_minibatchSize = InputRef(0).Value().GetNumCols();
+        m_magnitude->Resize(1, m_minibatchSize);
+        m_temp1->Resize(1, m_minibatchSize);
+        m_temp2->Resize(m_inputDimension, m_minibatchSize);
+    }
+
+    virtual void BackpropToNonLooping(size_t inputIndex) override
+    {
+        FrameRange fr(InputRef(0).GetMBLayout());
+        auto X = InputRef(0).ValueFor(fr);
+        auto X_gradient = InputRef(0).GradientFor(fr);
+
+        if (1 == m_normalizeType)
+        {
+            Matrix<ElemType>::InnerProduct(Value(), Gradient(), *m_temp1, true);
+            m_temp1->RowElementDivideBy(*m_magnitude);
+            X_gradient.AssignSignOf(X);
+            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, X_gradient, *m_temp1, (ElemType)1, X_gradient);
+
+            m_temp2->SetValue(Gradient());
+            m_temp2->RowElementDivideBy(*m_magnitude);
+            Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
+        }
+        else if (2 == m_normalizeType)
+        {
+            Matrix<ElemType>::InnerProduct(Value(), Gradient(), *m_temp1, true);
+            m_temp1->RowElementDivideBy(*m_magnitude);
+            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, Value(), *m_temp1, (ElemType)0, X_gradient);
+
+            m_temp2->SetValue(Gradient());
+            m_temp2->RowElementDivideBy(*m_magnitude);
+            Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
+        }
+        else
+            LogicError("This normalizeType is not supported yet.");
+    }
+
+    virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
+    {
+        FrameRange fr(InputRef(0).GetMBLayout());
+        auto X = InputRef(0).ValueFor(fr);
+
+        if (1 == m_normalizeType)
+        {
+            X.VectorNorm1(*m_magnitude, true);
+            Value().SetValue(X);
+            Value().RowElementDivideBy(*m_magnitude);
+        }
+        else if (2 == m_normalizeType)
+        {
+            X.VectorNorm2(*m_magnitude, true);
+            Value().SetValue(X);
+            Value().RowElementDivideBy(*m_magnitude);
+        }
+        else
+            LogicError("This normalizeType is not supported yet.");
+    }
+
+    virtual bool OutputUsedInComputingInputNodesGradients() const override { return true; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return true; }
+
+    virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
+    {
+        Base::Validate(isFinalValidationPass);
+
+        InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
+        SetDims(TensorShape(InputRef(0).Value().GetNumRows()), HasMBLayout());
+    }
+
+    virtual void CopyTo(ComputationNodeBasePtr nodeP, const std::wstring& newName, const CopyNodeFlags flags) const override
+    {
+        Base::CopyTo(nodeP, newName, flags);
+        if (flags & CopyNodeFlags::copyNodeValue)
+        {
+            auto node = dynamic_pointer_cast<FeatureNormalizeNode<ElemType>>(nodeP);
+            node->m_normalizeType = m_normalizeType;
+            node->m_magnitude->SetValue(*m_magnitude);
+            node->m_temp1->SetValue(*m_temp1);
+            node->m_temp2->SetValue(*m_temp2);
+        }
+    }
+
+    // request matrices needed to do node function value evaluation
+    virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
+    {
+        Base::RequestMatricesBeforeForwardProp(matrixPool);
+        RequestMatrixFromPool(m_magnitude, matrixPool);
+        RequestMatrixFromPool(m_temp1, matrixPool);
+        RequestMatrixFromPool(m_temp2, matrixPool);
+    }
+
+    // release gradient and temp matrices that no longer needed after all the children's gradients are computed.
+    virtual void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool)
+    {
+        Base::ReleaseMatricesAfterBackprop(matrixPool);
+        ReleaseMatrixToPool(m_magnitude, matrixPool);
+        ReleaseMatrixToPool(m_temp1, matrixPool);
+        ReleaseMatrixToPool(m_temp2, matrixPool);
+    }
+
+private:
+    size_t m_inputDimension; // n
+    size_t m_minibatchSize; // m
+    size_t m_normalizeType; // L1-normalization or L2-normalization
+    shared_ptr<Matrix<ElemType>> m_magnitude; // Matrix(1, m)
+    shared_ptr<Matrix<ElemType>> m_temp1; // Matrix(1, m)
+    shared_ptr<Matrix<ElemType>> m_temp2; // Matrix(n, m)
+};
+
+template <class ElemType>
+class AdditiveFullConnectionNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<3>
+{
+
+public:
+    typedef ComputationNodeNonLooping<ElemType> Base; UsingComputationNodeMembersBoilerplate;
+    static const std::wstring TypeName() { return L"AdditiveFullConnection"; }
+
+public:
+    AdditiveFullConnectionNode(const ScriptableObjects::IConfigRecordPtr configp) :
+        AdditiveFullConnectionNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"outputDimension"),
+            configp->Get(L"weightNormalize"),
+            configp->Get(L"bias"), configp->Get(L"annealBias"),
+            configp->Get(L"biasBase"), configp->Get(L"biasGamma"), configp->Get(L"biasPower"), configp->Get(L"biasMin"), configp->Get(L"biasMax"))
+    {
+        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
+        AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
+    }
+
+    AdditiveFullConnectionNode(DEVICEID_TYPE deviceId, const wstring& name, size_t outputDimension = 0,
+        bool weightNormalize = true,
+        ElemType bias = 0, bool annealBias = false, ElemType biasBase = 0, ElemType biasGamma = 0, ElemType biasPower = 0, ElemType biasMin = 0, ElemType biasMax = 0)
+        : Base(deviceId, name), m_outputDimension(outputDimension),
+        m_weightNormalize(weightNormalize),
+        m_bias(bias), m_annealBias(annealBias), m_biasBase(biasBase), m_biasGamma(biasGamma), m_biasPower(biasPower), m_biasMin(biasMin), m_biasMax(biasMax)
+    {
+        m_iter = 0;
+    }
+
+    virtual void UpdateFunctionMBSize() override
+    {
+        m_inputDimension = InputRef(0).Value().GetNumRows();
+        m_minibatchSize = InputRef(0).Value().GetNumCols();
+
+        m_label->Resize(1, m_minibatchSize);
+        m_labelValue->Resize(1, m_minibatchSize);
+        m_weightMagnitude->Resize(m_outputDimension, 1); // Matrix(k,1)
+    }
+
+    virtual void BackpropToNonLooping(size_t inputIndex) override
+    {
+        FrameRange fr(InputRef(0).GetMBLayout());
+        auto X = InputRef(1).ValueFor(fr);
+        auto& weight = InputRef(2).Value();
+        auto X_gradient = InputRef(1).GradientFor(fr);
+        auto& weightGradient = InputRef(2).Gradient();
+
+        Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
+        Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
+    }
+
+    virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
+    {
+        FrameRange fr(InputRef(0).GetMBLayout());
+        InputRef(0).MaskedValueFor(fr).VectorMax(*m_label, *m_labelValue, true /*isColWise*/);
+        auto X = InputRef(1).ValueFor(fr);
+        auto& weight = InputRef(2).Value();
+
+        if (m_annealBias)
+        {
+            m_bias = m_biasBase * pow(1 + m_biasGamma * m_iter, -m_biasPower);
+            m_bias = std::max(m_bias, m_biasMin);
+            m_bias = std::min(m_bias, m_biasMax);
+            ++m_iter;
+        }
+
+        if (m_weightNormalize)
+        {
+            weight.VectorNorm2(*m_weightMagnitude, false);
+            weight.ColumnElementDivideBy(*m_weightMagnitude);
+        }
+
+        Matrix<ElemType>::Multiply(weight, false, X, false, Value());
+        Matrix<ElemType>::LabelAdd(*m_label, m_bias, Value());
+    }
+
+    virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return false; }
+
+    virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
+    {
+        Base::Validate(isFinalValidationPass);
+
+        InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
+        SetDims(TensorShape(InputRef(2).Value().GetNumRows()), HasMBLayout());
+    }
+
+    virtual void CopyTo(ComputationNodeBasePtr nodeP, const std::wstring& newName, const CopyNodeFlags flags) const override
+    {
+        Base::CopyTo(nodeP, newName, flags);
+        if (flags & CopyNodeFlags::copyNodeValue)
+        {
+            auto node = dynamic_pointer_cast<AdditiveFullConnectionNode<ElemType>>(nodeP);
+            node->m_inputDimension = m_inputDimension;
+            node->m_outputDimension = m_outputDimension;
+            node->m_minibatchSize = m_minibatchSize;
+            node->m_weightNormalize = m_weightNormalize;
+            node->m_bias = m_bias;
+            node->m_annealBias = m_annealBias;
+            node->m_biasBase = m_biasBase;
+            node->m_biasGamma = m_biasGamma;
+            node->m_biasPower = m_biasPower;
+            node->m_biasMin = m_biasMin;
+            node->m_biasMax = m_biasMax;
+            node->m_iter = m_iter;
+
+            node->m_label->SetValue(*m_label);
+        }
+    }
+
+    // request matrices needed to do node function value evaluation
+    virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
+    {
+        Base::RequestMatricesBeforeForwardProp(matrixPool);
+        RequestMatrixFromPool(m_label, matrixPool);
+        RequestMatrixFromPool(m_labelValue, matrixPool);
+        if (m_weightNormalize)
+            RequestMatrixFromPool(m_weightMagnitude, matrixPool);
+    }
+
+    // release gradient and temp matrices that no longer needed after all the children's gradients are computed.
+    virtual void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool)
+    {
+        Base::ReleaseMatricesAfterBackprop(matrixPool);
+        ReleaseMatrixToPool(m_label, matrixPool);
+        ReleaseMatrixToPool(m_labelValue, matrixPool);
+        if (m_weightNormalize)
+            ReleaseMatrixToPool(m_weightMagnitude, matrixPool);
+    }
+
+private:
+    size_t m_inputDimension; // n
+    size_t m_outputDimension; // k
+    size_t m_minibatchSize; // m
+    bool m_weightNormalize;
+    ElemType m_bias;
+    bool m_annealBias;
+    ElemType m_biasBase;
+    ElemType m_biasGamma;
+    ElemType m_biasPower;
+    ElemType m_biasMin;
+    ElemType m_biasMax;
+    size_t m_iter;
+
+    shared_ptr<Matrix<ElemType>> m_label; // Matrix(1,m)
+    shared_ptr<Matrix<ElemType>> m_labelValue; // Matrix(1,m)
+    shared_ptr<Matrix<ElemType>> m_weightMagnitude; // Matrix(k,1)
 };
 
 // -----------------------------------------------------------------------

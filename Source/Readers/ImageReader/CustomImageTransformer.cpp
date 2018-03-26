@@ -160,13 +160,9 @@ namespace CNTK {
 
     CustomTransformer::CustomTransformer(const ConfigParameters& config) : ImageTransformerBase(config)
     {
-#ifdef  __DEBUG__
-        DebugImageId = 0;
-#endif
-
         m_do_mirror = true;
         stringargvector flag;
-        flag = config(L"mirror", L"true");
+        flag = stringargvector(config(L"mirror", L"true"));
         auto lowcase = [](wstring str)
         {
             wstring _str = L"";
@@ -179,96 +175,79 @@ namespace CNTK {
 
         floatargvector arg[5];
 
-        arg[0] = config(L"scale", "1.0");
-        arg[1] = config(L"scale_std", "0.0");
-        arg[2] = config(L"scale_range", "0.0");
+        arg[0] = floatargvector(config(L"scale", "1.0"));
+        arg[1] = floatargvector(config(L"scale_std", "0.0"));
+        arg[2] = floatargvector(config(L"scale_range", "0.0"));
         m_scale.init(arg[0][0], arg[1][0], arg[2][0], true);
 
-        arg[0] = config(L"crop_size", "0.0");
+        arg[0] = floatargvector(config(L"crop_size", "0.0"));
         m_crop_size = arg[0][0];
 
-        arg[0] = config(L"width", "0.0");
-        arg[1] = config(L"crop_x_offset", "0.5");
-        arg[2] = config(L"crop_x", "0.5");
-        arg[3] = config(L"crop_x_std", "0.0");
-        arg[4] = config(L"crop_x_range", "0.0");
+        arg[0] = floatargvector(config(L"width", "0.0"));
+        arg[1] = floatargvector(config(L"crop_x_offset", "0.5"));
+        arg[2] = floatargvector(config(L"crop_x", "0.5"));
+        arg[3] = floatargvector(config(L"crop_x_std", "0.0"));
+        arg[4] = floatargvector(config(L"crop_x_range", "0.0"));
         m_w_crop.init(arg[0][0] != 0 ? arg[0][0] : m_crop_size, arg[1][0], arg[2][0], arg[3][0], arg[4][0], true);
 
-        arg[0] = config(L"height", "0.0");
-        arg[1] = config(L"crop_y_offset", "0.5");
-        arg[2] = config(L"crop_y", "0.5");
-        arg[3] = config(L"crop_y_std", "0.0");
-        arg[4] = config(L"crop_y_range", "0.0");
+        arg[0] = floatargvector(config(L"height", "0.0"));
+        arg[1] = floatargvector(config(L"crop_y_offset", "0.5"));
+        arg[2] = floatargvector(config(L"crop_y", "0.5"));
+        arg[3] = floatargvector(config(L"crop_y_std", "0.0"));
+        arg[4] = floatargvector(config(L"crop_y_range", "0.0"));
         m_h_crop.init(arg[0][0] != 0 ? arg[0][0] : m_crop_size, arg[1][0], arg[2][0], arg[3][0], arg[4][0], true);
 
-        arg[0] = config(L"resize", "0.0");
-        arg[1] = config(L"resize_std", "0.0");
-        arg[2] = config(L"resize_range", "0.0");
+        arg[0] = floatargvector(config(L"resize", "0.0"));
+        arg[1] = floatargvector(config(L"resize_std", "0.0"));
+        arg[2] = floatargvector(config(L"resize_range", "0.0"));
         m_new_size.init(arg[0][0], arg[1][0], arg[2][0]);
 
-        arg[0] = config(L"resize_width", "0.0");
-        arg[1] = config(L"resize_width_std", "0.0");
-        arg[2] = config(L"resize_width_range", "0.0");
+        arg[0] = floatargvector(config(L"resize_width", "0.0"));
+        arg[1] = floatargvector(config(L"resize_width_std", "0.0"));
+        arg[2] = floatargvector(config(L"resize_width_range", "0.0"));
         m_new_width.init(arg[0][0], arg[1][0], arg[2][0]);
 
-        arg[0] = config(L"resize_height", "0.0");
-        arg[1] = config(L"resize_height_std", "0.0");
-        arg[2] = config(L"resize_height_range", "0.0");
+        arg[0] = floatargvector(config(L"resize_height", "0.0"));
+        arg[1] = floatargvector(config(L"resize_height_std", "0.0"));
+        arg[2] = floatargvector(config(L"resize_height_range", "0.0"));
         m_new_height.init(arg[0][0], arg[1][0], arg[2][0]);
 
-        arg[0] = config(L"aspect_ratio", "1.0");
-        arg[1] = config(L"aspect_ratio_std", "0.0");
-        arg[2] = config(L"aspect_ratio_range", "0.0");
+        arg[0] = floatargvector(config(L"aspect_ratio", "1.0"));
+        arg[1] = floatargvector(config(L"aspect_ratio_std", "0.0"));
+        arg[2] = floatargvector(config(L"aspect_ratio_range", "0.0"));
         m_aspect_ratio.init(arg[0][0], arg[1][0], arg[2][0], true);
 
-        arg[0] = config(L"rotate_degree", "0.0");
-        arg[1] = config(L"rotate_degree_std", "0.0");
-        arg[2] = config(L"rotate_degree_range", "0.0");
+        arg[0] = floatargvector(config(L"rotate_degree", "0.0"));
+        arg[1] = floatargvector(config(L"rotate_degree_std", "0.0"));
+        arg[2] = floatargvector(config(L"rotate_degree_range", "0.0"));
         m_rotate.init(arg[0][0], arg[1][0], arg[2][0], true);
 
-        arg[0] = config(L"brightness", "0.0");
-        arg[1] = config(L"brightness_std", "0.0");
-        arg[2] = config(L"brightness_range", "0.0");
+        arg[0] = floatargvector(config(L"brightness", "0.0"));
+        arg[1] = floatargvector(config(L"brightness_std", "0.0"));
+        arg[2] = floatargvector(config(L"brightness_range", "0.0"));
         m_brightness.init(arg[0][0], arg[1][0], arg[2][0], true);
 
-        arg[0] = config(L"hue", "0.0");
-        arg[1] = config(L"hue_std", "0.0");
-        arg[2] = config(L"hue_range", "0.0");
+        arg[0] = floatargvector(config(L"hue", "0.0"));
+        arg[1] = floatargvector(config(L"hue_std", "0.0"));
+        arg[2] = floatargvector(config(L"hue_range", "0.0"));
         m_hue.init(arg[0][0], arg[1][0], arg[2][0], true);
 
-        arg[0] = config(L"saturation", "1.0");
-        arg[1] = config(L"saturation_std", "0.0");
-        arg[2] = config(L"saturation_range", "0.0");
+        arg[0] = floatargvector(config(L"saturation", "1.0"));
+        arg[1] = floatargvector(config(L"saturation_std", "0.0"));
+        arg[2] = floatargvector(config(L"saturation_range", "0.0"));
         m_saturation.init(arg[0][0], arg[1][0], arg[2][0], true);
 
-        arg[0] = config(L"lightness", "1.0");
-        arg[1] = config(L"lightness_std", "0.0");
-        arg[2] = config(L"lightness_range", "0.0");
+        arg[0] = floatargvector(config(L"lightness", "1.0"));
+        arg[1] = floatargvector(config(L"lightness_std", "0.0"));
+        arg[2] = floatargvector(config(L"lightness_range", "0.0"));
         m_lightness.init(arg[0][0], arg[1][0], arg[2][0], true);
 
-        arg[0] = config(L"B_mean", "128.0");
+        arg[0] = floatargvector(config(L"B_mean", "128.0"));
         m_mean_values.push_back(arg[0][0]);
-        arg[0] = config(L"G_mean", "128.0");
+        arg[0] = floatargvector(config(L"G_mean", "128.0"));
         m_mean_values.push_back(arg[0][0]);
-        arg[0] = config(L"R_mean", "128.0");
+        arg[0] = floatargvector(config(L"R_mean", "128.0"));
         m_mean_values.push_back(arg[0][0]);
-
-#ifdef __DEBUG__
-        cout << "mirror = " << (m_do_mirror ? string("true") : string("false")) << endl;
-        cout << "B_mean = " << m_mean_values[0] << endl;
-        cout << "G_mean = " << m_mean_values[1] << endl;
-        cout << "R_mean = " << m_mean_values[2] << endl;
-        cout << "scale = " << m_scale.mean_ << endl;
-        cout << "resize = " << m_new_size.mean_ << endl;
-        cout << "resize_range = " << m_new_size.range_ << endl;
-        cout << "aspect_ratio_range = " << m_aspect_ratio.range_ << endl;
-        cout << "rotate_degree_range = " << m_rotate.range_ << endl;
-        cout << "crop_size = " << m_crop_size << endl;
-        cout << "crop_x_range = " << m_h_crop.range_ << endl;
-        cout << "crop_y_range = " << m_w_crop.range_ << endl;
-        cout << "crop_x_offset = " << m_h_crop.offset_factor << endl;
-        cout << "crop_y_offset = " << m_w_crop.offset_factor << endl;
-#endif
     }
 
     void CustomTransformer::GetRandSize(int& img_width, int& img_height, std::mt19937 &rng) {
@@ -341,17 +320,9 @@ namespace CNTK {
 
     void CustomTransformer::Apply(uint8_t, cv::Mat &mat)
     {
-#ifdef __DEBUG__
-        if (++DebugImageId <= 200)
-            cv::imwrite("F:\\Users\\v-zhmao\\dataset-debug\\debug\\temp0_" + to_string(DebugImageId) + ".jpg", mat);
-#endif
         auto seed = GetSeed();
         auto rng = m_rngs.pop_or_create([seed]() { return std::make_unique<std::mt19937>(seed); });
         const cv::Mat cv_img = this->Resize(mat, *rng);
-#ifdef __DEBUG__
-        if (++DebugImageId <= 200)
-            cv::imwrite("F:\\Users\\v-zhmao\\dataset-debug\\debug\\temp1_" + to_string(DebugImageId) + ".jpg", cv_img);
-#endif
         const int crop_width = m_w_crop.size();
         const int crop_height = m_h_crop.size();
         const int img_channels = cv_img.channels();
@@ -365,7 +336,6 @@ namespace CNTK {
         const bool do_mirror = m_do_mirror && Rand(2, *rng);
         const bool has_mean_values = m_mean_values.size() > 0;
 
-
         cv::Mat cv_cropped_img = cv_img;
 
         int h_off = this->m_h_crop.offset(img_height, *rng); // crop_height ? Rand(img_height - crop_height + 1) : 0;
@@ -375,22 +345,11 @@ namespace CNTK {
         {
             cv::Rect roi(w_off, h_off, crop_width ? crop_width : img_width, crop_height ? crop_height : img_height);
             cv_cropped_img = cv_img(roi);
-#ifdef __DEBUG__
-            if (++DebugImageId <= 200)
-                cv::imwrite("F:\\Users\\v-zhmao\\dataset-debug\\debug\\temp2_" + to_string(DebugImageId) + ".jpg", cv_cropped_img);
-#endif
         }
 
         cv::Mat cv_rotated_img = this->Rotate(cv_cropped_img, *rng);
-#ifdef __DEBUG__
-        if (++DebugImageId <= 200)
-            cv::imwrite("F:\\Users\\v-zhmao\\dataset-debug\\debug\\temp3_" + to_string(DebugImageId) + ".jpg", cv_rotated_img);
-#endif
+
         this->JitterColor(cv_rotated_img, *rng);
-#ifdef __DEBUG__
-        if (++DebugImageId <= 200)
-            cv::imwrite("F:\\Users\\v-zhmao\\dataset-debug\\debug\\temp4_" + to_string(DebugImageId) + ".jpg", cv_rotated_img);
-#endif
 
         mat = cv_img_resize(mat, crop_width, crop_height);
         ConvertToFloatingPointIfRequired(mat);
@@ -413,31 +372,6 @@ namespace CNTK {
                 }
             }
         }
-#ifdef __DEBUG__
-        cv::Mat debugMat = cv::Mat(crop_height, crop_width, CV_32F);
-        for (int h = 0; h < crop_height; ++h)
-        {
-            const float* ptr = mat.ptr<float>(h);
-            float* transformed_data = debugMat.ptr<float>(h);
-            int img_index = 0;
-            for (int w = 0; w < crop_width; ++w)
-            {
-                for (int c = 0; c < img_channels; ++c)
-                {
-                    if (do_mirror)
-                        top_index = (crop_width - 1 - w) * img_channels + c;
-                    else
-                        top_index = img_index;
-                    // int top_index = (c * height + h) * width + w;
-                    float pixel = ptr[img_index++];
-                    transformed_data[top_index] = pixel / scale - beta + m_mean_values[c];
-                }
-            }
-        }
-        if(++DebugImageId <= 200)
-            cv::imwrite("F:\\Users\\v-zhmao\\dataset-debug\\debug\\debug" + to_string(DebugImageId) + ".jpg", debugMat);
-        debugMat.release();
-#endif
     }
 
 }

@@ -445,6 +445,10 @@ public:
         const CPUMatrix<ElemType>& cosTheta, const CPUMatrix<ElemType>& cosThetaQuadratic, const CPUMatrix<ElemType>& cosThetaCubic, const CPUMatrix<ElemType>& cosThetaQuartic, const CPUMatrix<ElemType>& sign3, const CPUMatrix<ElemType>& sign4);
 #pragma endregion
 
+#pragma region AMsoftmax
+    static void LabelAdd(const CPUMatrix<ElemType>& label, ElemType bias, const CPUMatrix<ElemType>& value);
+#pragma endregion
+
 
 
 

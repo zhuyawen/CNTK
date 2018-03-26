@@ -97,6 +97,8 @@ namespace CNTK
         Atanh = 85,
         Asinh = 86,
         MarginInnerProduct = 87,
+        FeatureNormalize = 88,
+        AdditiveFullConnection = 89,
         // New op types should only be appended to the end of this list 
         UnknownOP
         // and UnknownOP should always be last.
