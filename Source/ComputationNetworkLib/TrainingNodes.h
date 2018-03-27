@@ -109,14 +109,12 @@ public:
         if (1 == inputIndex)
         {
             auto X_gradient = InputRef(1).GradientFor(fr);
+            Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
 
             switch (m_marginCoefficient)
             {
                 case 1:
-                {
-                    Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
                     break;
-                }
                 case 2:
                 {
                     Matrix<ElemType>::AsoftmaxBackward2(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
@@ -586,25 +584,21 @@ public:
         {
             Matrix<ElemType>::InnerProduct(Value(), Gradient(), *m_temp1, true);
             m_temp1->RowElementDivideBy(*m_magnitude);
-            X_gradient.AssignSignOf(X);
-            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, X_gradient, *m_temp1, (ElemType)1, X_gradient);
-
-            m_temp2->SetValue(Gradient());
-            m_temp2->RowElementDivideBy(*m_magnitude);
-            Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
+            m_temp2->AssignSignOf(X);
+            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, *m_temp2, *m_temp1, (ElemType)0, X_gradient);
         }
         else if (2 == m_normalizeType)
         {
             Matrix<ElemType>::InnerProduct(Value(), Gradient(), *m_temp1, true);
             m_temp1->RowElementDivideBy(*m_magnitude);
             Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, Value(), *m_temp1, (ElemType)0, X_gradient);
-
-            m_temp2->SetValue(Gradient());
-            m_temp2->RowElementDivideBy(*m_magnitude);
-            Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
         }
         else
             LogicError("This normalizeType is not supported yet.");
+
+        m_temp2->SetValue(Gradient());
+        m_temp2->RowElementDivideBy(*m_magnitude);
+        Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
     }
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
@@ -613,19 +607,16 @@ public:
         auto X = InputRef(0).ValueFor(fr);
 
         if (1 == m_normalizeType)
-        {
             X.VectorNorm1(*m_magnitude, true);
-            Value().SetValue(X);
-            Value().RowElementDivideBy(*m_magnitude);
-        }
         else if (2 == m_normalizeType)
-        {
             X.VectorNorm2(*m_magnitude, true);
-            Value().SetValue(X);
-            Value().RowElementDivideBy(*m_magnitude);
-        }
         else
             LogicError("This normalizeType is not supported yet.");
+
+        m_temp1->SetValue((ElemType)1e-6);
+        Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp1, *m_magnitude);
+        Value().SetValue(X);
+        Value().RowElementDivideBy(*m_magnitude);
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return true; }

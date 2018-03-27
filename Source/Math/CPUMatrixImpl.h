@@ -5127,7 +5127,6 @@ template <class ElemType>
 void CPUMatrix<ElemType>::AsoftmaxBackward2(ElemType lambda, size_t inputDimension, size_t outputDimension, const CPUMatrix<ElemType>& label, const CPUMatrix<ElemType>& gradient, CPUMatrix<ElemType>& X_gradient, const CPUMatrix<ElemType>& inputMagnitude, const CPUMatrix<ElemType>& X, const CPUMatrix<ElemType>& weight,
     const CPUMatrix<ElemType>& cosTheta, const CPUMatrix<ElemType>& cosThetaQuadratic, const CPUMatrix<ElemType>& sign0)
 {
-    CPUMatrix<ElemType>::Multiply(weight, true, gradient, false, X_gradient);
     size_t minibatchSize = label.GetNumCols();
     size_t labelValue = 0;
     ElemType coeff_w = 0.0;
@@ -5169,7 +5168,6 @@ template <class ElemType>
 void CPUMatrix<ElemType>::AsoftmaxBackward3(ElemType lambda, size_t inputDimension, size_t outputDimension, const CPUMatrix<ElemType>& label, const CPUMatrix<ElemType>& gradient, CPUMatrix<ElemType>& X_gradient, const CPUMatrix<ElemType>& inputMagnitude, const CPUMatrix<ElemType>& X, const CPUMatrix<ElemType>& weight,
     const CPUMatrix<ElemType>& cosThetaQuadratic, const CPUMatrix<ElemType>& cosThetaCubic, const CPUMatrix<ElemType>& sign1, const CPUMatrix<ElemType>& sign2)
 {
-    CPUMatrix<ElemType>::Multiply(weight, true, gradient, false, X_gradient);
     size_t minibatchSize = label.GetNumCols();
     size_t labelValue = 0;
     ElemType coeff_w = 0.0;
@@ -5212,7 +5210,6 @@ template <class ElemType>
 void CPUMatrix<ElemType>::AsoftmaxBackward4(ElemType lambda, size_t inputDimension, size_t outputDimension, const CPUMatrix<ElemType>& label, const CPUMatrix<ElemType>& gradient, CPUMatrix<ElemType>& X_gradient, const CPUMatrix<ElemType>& inputMagnitude, const CPUMatrix<ElemType>& X, const CPUMatrix<ElemType>& weight,
     const CPUMatrix<ElemType>& cosTheta, const CPUMatrix<ElemType>& cosThetaQuadratic, const CPUMatrix<ElemType>& cosThetaCubic, const CPUMatrix<ElemType>& cosThetaQuartic, const CPUMatrix<ElemType>& sign3, const CPUMatrix<ElemType>& sign4)
 {
-    CPUMatrix<ElemType>::Multiply(weight, true, gradient, false, X_gradient);
     size_t minibatchSize = label.GetNumCols();
     size_t labelValue = 0;
     ElemType coeff_w = 0.0;
