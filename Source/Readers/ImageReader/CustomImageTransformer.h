@@ -220,7 +220,6 @@ namespace CNTK {
         public:
             void Apply(uint8_t copyId, cv::Mat &mat) override;
 
-            shared_ptr<boost::mt19937> rng_;
             bool m_do_mirror;
             float* data_mean_data_;
             cv::Mat img_mean_;

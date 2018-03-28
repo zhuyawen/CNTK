@@ -372,6 +372,8 @@ namespace CNTK {
                 }
             }
         }
+
+        m_rngs.push(std::move(rng));
     }
 
 }
