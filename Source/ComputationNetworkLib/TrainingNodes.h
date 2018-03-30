@@ -46,7 +46,6 @@ public:
             configp->Get(L"marginInnerProductBase"), configp->Get(L"marginInnerProductGamma"), configp->Get(L"marginInnerProductPower"), configp->Get(L"marginInnerProductLambdaMin"),
             configp->Get(L"marginCoefficient"))
     {
-        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
     }
 
@@ -54,7 +53,7 @@ public:
         ElemType base = 0, ElemType gamma = 0, ElemType power = 1, ElemType lambdaMin = 0, size_t marginCoefficient = 2)
         : Base(deviceId, name), m_outputDimension(outputDimension), m_base(base), m_gamma(gamma), m_power(power), m_lambdaMin(lambdaMin), m_marginCoefficient(marginCoefficient)
     {
-        m_iter = 0;
+        m_iter = 1;
     }
 
     virtual void UpdateFunctionMBSize() override
@@ -106,6 +105,8 @@ public:
 
         if (1 == inputIndex)
         {
+            ++m_iter;
+
             auto X_gradient = InputRef(1).GradientFor(fr);
             Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
 
@@ -149,7 +150,6 @@ public:
         auto X = InputRef(1).ValueFor(fr);
         auto& weight = InputRef(2).Value();
 
-        ++m_iter;
         m_lambda = m_base * pow(1 + m_gamma * m_iter, -m_power);
         m_lambda = std::max(m_lambda, m_lambdaMin);
 
@@ -355,6 +355,34 @@ public:
         ReleaseMatrixToPool(m_tempMatrix, matrixPool);
     }
 
+    void Save(File& fstream) const override
+    {
+        Base::Save(fstream);
+
+        fstream << m_outputDimension;
+        fstream << m_marginCoefficient;
+        fstream << m_base;
+        fstream << m_gamma;
+        fstream << m_power;
+        fstream << m_lambdaMin;
+        fstream << m_iter;
+        fstream << m_lambda;
+    }
+
+    void Load(File& fstream, size_t modelVersion) override
+    {
+        Base::Load(fstream, modelVersion);
+
+        fstream >> m_outputDimension;
+        fstream >> m_marginCoefficient;
+        fstream >> m_base;
+        fstream >> m_gamma;
+        fstream >> m_power;
+        fstream >> m_lambdaMin;
+        fstream >> m_iter;
+        fstream >> m_lambda;
+    }
+
 private:
     size_t m_inputDimension; // n
     size_t m_outputDimension; // k
@@ -405,7 +433,6 @@ public:
     FeatureNormalizeNode(const ScriptableObjects::IConfigRecordPtr configp) :
         FeatureNormalizeNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"featureNormalizeType"))
     {
-        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
     }
 
@@ -507,6 +534,20 @@ public:
         ReleaseMatrixToPool(m_temp2, matrixPool);
     }
 
+    void Save(File& fstream) const override
+    {
+        Base::Save(fstream);
+
+        fstream << m_normalizeType;
+    }
+
+    void Load(File& fstream, size_t modelVersion) override
+    {
+        Base::Load(fstream, modelVersion);
+
+        fstream >> m_normalizeType;
+    }
+
 private:
     size_t m_inputDimension; // n
     size_t m_minibatchSize; // m
@@ -531,7 +572,6 @@ public:
             configp->Get(L"bias"), configp->Get(L"annealBias"),
             configp->Get(L"biasBase"), configp->Get(L"biasGamma"), configp->Get(L"biasPower"), configp->Get(L"biasMin"), configp->Get(L"biasMax"))
     {
-        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
     }
 
@@ -557,14 +597,22 @@ public:
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
-        FrameRange fr(InputRef(0).GetMBLayout());
-        auto X = InputRef(1).ValueFor(fr);
-        auto& weight = InputRef(2).Value();
-        auto X_gradient = InputRef(1).GradientFor(fr);
-        auto& weightGradient = InputRef(2).Gradient();
+        if (1 == inputIndex)
+        {
+            ++m_iter;
 
-        Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
-        Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
+            FrameRange fr(InputRef(0).GetMBLayout());
+            auto& weight = InputRef(2).Value();
+            auto X_gradient = InputRef(1).GradientFor(fr);
+            Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
+        }
+        else if (2 == inputIndex)
+        {
+            FrameRange fr(InputRef(0).GetMBLayout());
+            auto X = InputRef(1).ValueFor(fr);
+            auto& weightGradient = InputRef(2).Gradient();
+            Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
+        }
     }
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
@@ -579,7 +627,6 @@ public:
             m_bias = m_biasBase * pow(1 + m_biasGamma * m_iter, -m_biasPower);
             m_bias = std::max(m_bias, m_biasMin);
             m_bias = std::min(m_bias, m_biasMax);
-            ++m_iter;
         }
 
         if (m_weightNormalize)
@@ -644,6 +691,38 @@ public:
         ReleaseMatrixToPool(m_labelValue, matrixPool);
         if (m_weightNormalize)
             ReleaseMatrixToPool(m_weightMagnitude, matrixPool);
+    }
+
+    void Save(File& fstream) const override
+    {
+        Base::Save(fstream);
+
+        fstream << m_outputDimension;
+        fstream << m_weightNormalize;
+        fstream << m_bias;
+        fstream << m_annealBias;
+        fstream << m_biasBase;
+        fstream << m_biasGamma;
+        fstream << m_biasPower;
+        fstream << m_biasMin;
+        fstream << m_biasMax;
+        fstream << m_iter;
+    }
+
+    void Load(File& fstream, size_t modelVersion) override
+    {
+        Base::Load(fstream, modelVersion);
+
+        fstream >> m_outputDimension;
+        fstream << m_weightNormalize;
+        fstream << m_bias;
+        fstream << m_annealBias;
+        fstream << m_biasBase;
+        fstream << m_biasGamma;
+        fstream << m_biasPower;
+        fstream << m_biasMin;
+        fstream << m_biasMax;
+        fstream << m_iter;
     }
 
 private:
