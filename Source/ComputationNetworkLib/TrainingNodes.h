@@ -36,8 +36,6 @@ template <class ElemType>
 class MarginInnerProductNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<3>
 {
 
-//#define WEIGHT_GRADIENT_CORRECTION
-
 public:
     typedef ComputationNodeNonLooping<ElemType> Base; UsingComputationNodeMembersBoilerplate;
     static const std::wstring TypeName() { return L"MarginInnerProduct"; }
@@ -48,7 +46,6 @@ public:
             configp->Get(L"marginInnerProductBase"), configp->Get(L"marginInnerProductGamma"), configp->Get(L"marginInnerProductPower"), configp->Get(L"marginInnerProductLambdaMin"),
             configp->Get(L"marginCoefficient"))
     {
-        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
     }
 
@@ -56,7 +53,7 @@ public:
         ElemType base = 0, ElemType gamma = 0, ElemType power = 1, ElemType lambdaMin = 0, size_t marginCoefficient = 2)
         : Base(deviceId, name), m_outputDimension(outputDimension), m_base(base), m_gamma(gamma), m_power(power), m_lambdaMin(lambdaMin), m_marginCoefficient(marginCoefficient)
     {
-        m_iter = 0;
+        m_iter = 1;
     }
 
     virtual void UpdateFunctionMBSize() override
@@ -72,29 +69,29 @@ public:
 
         switch (m_marginCoefficient)
         {
-            case 2:
-            {
-                m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
-                m_sign0->Resize(m_outputDimension, m_minibatchSize);
-                break;
-            }
-            case 3:
-            {
-                m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
-                m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
-                m_sign1->Resize(m_outputDimension, m_minibatchSize);
-                m_sign2->Resize(m_outputDimension, m_minibatchSize);
-                break;
-            }
-            case 4:
-            {
-                m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
-                m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
-                m_cosThetaQuartic->Resize(m_outputDimension, m_minibatchSize);
-                m_sign3->Resize(m_outputDimension, m_minibatchSize);
-                m_sign4->Resize(m_outputDimension, m_minibatchSize);
-                break;
-            }
+        case 2:
+        {
+            m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
+            m_sign0->Resize(m_outputDimension, m_minibatchSize);
+            break;
+        }
+        case 3:
+        {
+            m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
+            m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
+            m_sign1->Resize(m_outputDimension, m_minibatchSize);
+            m_sign2->Resize(m_outputDimension, m_minibatchSize);
+            break;
+        }
+        case 4:
+        {
+            m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
+            m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
+            m_cosThetaQuartic->Resize(m_outputDimension, m_minibatchSize);
+            m_sign3->Resize(m_outputDimension, m_minibatchSize);
+            m_sign4->Resize(m_outputDimension, m_minibatchSize);
+            break;
+        }
         }
 
         m_tempMatrix->Resize(m_outputDimension, m_minibatchSize);
@@ -108,188 +105,41 @@ public:
 
         if (1 == inputIndex)
         {
+            ++m_iter;
+
             auto X_gradient = InputRef(1).GradientFor(fr);
             Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
 
             switch (m_marginCoefficient)
             {
-                case 1:
-                    break;
-                case 2:
-                {
-                    Matrix<ElemType>::AsoftmaxBackward2(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
-                        *m_cosTheta, *m_cosThetaQuadratic, *m_sign0);
-                    break;
-                }
-                case 3:
-                {
-                    Matrix<ElemType>::AsoftmaxBackward3(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
-                        *m_cosThetaQuadratic, *m_cosThetaCubic, *m_sign1, *m_sign2);
-                    break;
-                }
-                case 4:
-                {
-                    Matrix<ElemType>::AsoftmaxBackward4(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
-                        *m_cosTheta, *m_cosThetaQuadratic, *m_cosThetaCubic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
-                    break;
-                }
-                default:
-                    LogicError("This marginCoefficient is not supported yet.");
+            case 1:
+                break;
+            case 2:
+            {
+                Matrix<ElemType>::AsoftmaxBackward2(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
+                    *m_cosTheta, *m_cosThetaQuadratic, *m_sign0);
+                break;
+            }
+            case 3:
+            {
+                Matrix<ElemType>::AsoftmaxBackward3(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
+                    *m_cosThetaQuadratic, *m_cosThetaCubic, *m_sign1, *m_sign2);
+                break;
+            }
+            case 4:
+            {
+                Matrix<ElemType>::AsoftmaxBackward4(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
+                    *m_cosTheta, *m_cosThetaQuadratic, *m_cosThetaCubic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
+                break;
+            }
+            default:
+                LogicError("This marginCoefficient is not supported yet.");
             }
         }
         else if (2 == inputIndex)
         {
             auto& weightGradient = InputRef(2).Gradient();
-
-#ifndef WEIGHT_GRADIENT_CORRECTION
             Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
-#else
-            weightGradient.SetValue(0.0);
-            switch (m_marginCoefficient)
-            {
-                case 1:
-                {
-                    Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
-                    break;
-                }
-                case 2:
-                {
-                    size_t labelValue = 0;
-                    ElemType YValue = 0.0;
-                    ElemType coeff_w = 0.0;
-                    ElemType coeff_x = 0.0;
-                    ElemType coeff_norm = 0.0;
-                    m_X_T->SetValue(X.Transpose());
-                    size_t index = 0;
-                    for (size_t i(0); i < m_minibatchSize; ++i)
-                    {
-                        labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimension; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                            else
-                            {
-                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (2.0 * m_sign0Array[index] * m_cosThetaQuadraticArray[index] + 1);
-                                coeff_x = 4.0 * m_sign0Array[index] * m_cosThetaArray[index];
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                        }
-                    }
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
-                    break;
-                }
-                case 3:
-                {
-                    size_t labelValue = 0;
-                    ElemType YValue = 0.0;
-                    ElemType coeff_w = 0.0;
-                    ElemType coeff_x = 0.0;
-                    ElemType coeff_norm = 0.0;
-                    m_X_T->SetValue(X.Transpose());
-                    size_t index = 0;
-                    for (size_t i(0); i < m_minibatchSize; ++i)
-                    {
-                        labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimension; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                            else
-                            {
-                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (8.0 * m_sign1Array[index] * m_cosThetaCubicArray[index] - m_sign2Array[index]);
-                                coeff_x = m_sign1Array[index] * (12.0 * m_cosThetaQuadraticArray[index] - 3.0);
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                        }
-                    }
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
-                    break;
-                }
-                case 4:
-                {
-                    size_t labelValue = 0;
-                    ElemType YValue = 0.0;
-                    ElemType coeff_w = 0.0;
-                    ElemType coeff_x = 0.0;
-                    ElemType coeff_norm = 0.0;
-                    m_X_T->SetValue(X.Transpose());
-                    size_t index = 0;
-                    for (size_t i(0); i < m_minibatchSize; ++i)
-                    {
-                        labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimension; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                            else
-                            {
-                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (m_sign3Array[index] * (24.0 * m_cosThetaQuarticArray[index] - 8.0 * m_cosThetaQuadraticArray[index] - 1.0) - m_sign4Array[index]);
-                                coeff_x = m_sign3Array[index] * (32.0 * m_cosThetaCubicArray[index] - 16.0 * m_cosThetaArray[index]);
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                        }
-                    }
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
-                    break;
-                }
-                default:
-                {
-                    LogicError("This marginCoefficient is not supported yet.");
-                }
-            }
-#endif
         }
     }
 
@@ -300,7 +150,6 @@ public:
         auto X = InputRef(1).ValueFor(fr);
         auto& weight = InputRef(2).Value();
 
-        ++m_iter;
         m_lambda = m_base * pow(1 + m_gamma * m_iter, -m_power);
         m_lambda = std::max(m_lambda, m_lambdaMin);
 
@@ -319,85 +168,85 @@ public:
 
         switch (m_marginCoefficient)
         {
-            case 1:
-                break;
-            case 2:
-            {
-                Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
-                break;
-            }
-            case 3:
-            {
-                Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
-                Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
+        case 1:
+            break;
+        case 2:
+        {
+            Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
+            break;
+        }
+        case 3:
+        {
+            Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
+            Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
 
-                // m_sign1 = sign(abs(m_cosTheta) - 0.5) 
-                m_sign1->AssignAbsOf(*m_cosTheta);
-                m_tempMatrix->SetValue(-0.5); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign1);
-                m_sign1->AssignSignOf(*m_sign1);
+            // m_sign1 = sign(abs(m_cosTheta) - 0.5) 
+            m_sign1->AssignAbsOf(*m_cosTheta);
+            m_tempMatrix->SetValue(-0.5); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign1);
+            m_sign1->AssignSignOf(*m_sign1);
 
-                // m_sign2 = m_sign0 * (1 + m_sign1) - 2
-                m_sign2->SetValue(*m_sign1);
-                m_tempMatrix->SetValue(1.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
-                m_sign2->ElementMultiplyWith(*m_sign0);
-                m_tempMatrix->SetValue(-2.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
+            // m_sign2 = m_sign0 * (1 + m_sign1) - 2
+            m_sign2->SetValue(*m_sign1);
+            m_tempMatrix->SetValue(1.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
+            m_sign2->ElementMultiplyWith(*m_sign0);
+            m_tempMatrix->SetValue(-2.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
 
-                break;
-            }
-            case 4:
-            {
-                Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
-                Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
-                Matrix<ElemType>::ElementWisePower(2, *m_cosThetaQuadratic, *m_cosThetaQuartic);
+            break;
+        }
+        case 4:
+        {
+            Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
+            Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
+            Matrix<ElemType>::ElementWisePower(2, *m_cosThetaQuadratic, *m_cosThetaQuartic);
 
-                // m_sign3 = m_sign0 * sign(2 * m_cosThetaQuadratic - 1)
-                Matrix<ElemType>::Scale(2.0, *m_cosThetaQuadratic, *m_sign3);
-                m_tempMatrix->SetValue(-1.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign3);
-                m_sign3->AssignSignOf(*m_sign3);
-                m_sign3->ElementMultiplyWith(*m_sign0);
+            // m_sign3 = m_sign0 * sign(2 * m_cosThetaQuadratic - 1)
+            Matrix<ElemType>::Scale(2.0, *m_cosThetaQuadratic, *m_sign3);
+            m_tempMatrix->SetValue(-1.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign3);
+            m_sign3->AssignSignOf(*m_sign3);
+            m_sign3->ElementMultiplyWith(*m_sign0);
 
-                // m_sign4 = 2 * m_sign0 + m_sign3 - 3
-                Matrix<ElemType>::Scale(2.0, *m_sign0, *m_sign4);
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_sign3, *m_sign4);
-                m_tempMatrix->SetValue(-3.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign4);
+            // m_sign4 = 2 * m_sign0 + m_sign3 - 3
+            Matrix<ElemType>::Scale(2.0, *m_sign0, *m_sign4);
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_sign3, *m_sign4);
+            m_tempMatrix->SetValue(-3.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign4);
 
-                break;
-            }
-            default:
-                LogicError("This marginCoefficient is not supported yet.");
+            break;
+        }
+        default:
+            LogicError("This marginCoefficient is not supported yet.");
         }
 
         Matrix<ElemType>::Multiply(weight, false, X, false, Value());
 
         switch (m_marginCoefficient)
         {
-            case 1:
-                break;
-            case 2:
-            {
-                Matrix<ElemType>::AsoftmaxForward2(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                    *m_cosThetaQuadratic, *m_sign0);
-                break;
-            }
-            case 3:
-            {
-                Matrix<ElemType>::AsoftmaxForward3(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                    *m_cosTheta, *m_cosThetaCubic, *m_sign1, *m_sign2);
-                break;
-            }
-            case 4:
-            {
-                Matrix<ElemType>::AsoftmaxForward4(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                    *m_cosThetaQuadratic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
-                break;
-            }
-            default:
-                LogicError("This marginCoefficient is not supported yet.");
+        case 1:
+            break;
+        case 2:
+        {
+            Matrix<ElemType>::AsoftmaxForward2(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                *m_cosThetaQuadratic, *m_sign0);
+            break;
+        }
+        case 3:
+        {
+            Matrix<ElemType>::AsoftmaxForward3(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                *m_cosTheta, *m_cosThetaCubic, *m_sign1, *m_sign2);
+            break;
+        }
+        case 4:
+        {
+            Matrix<ElemType>::AsoftmaxForward4(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                *m_cosThetaQuadratic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
+            break;
+        }
+        default:
+            LogicError("This marginCoefficient is not supported yet.");
         }
     }
 
@@ -426,30 +275,30 @@ public:
 
             switch (m_marginCoefficient)
             {
-                case 2:
-                {
-                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
-                    node->m_sign0->SetValue(*m_sign0);
-                    break;
-                }
-                case 3:
-                {
-                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
-                    node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
-                    node->m_sign1->SetValue(*m_sign1);
-                    node->m_sign2->SetValue(*m_sign2);
-                    break;
-                }
-                case 4:
-                {
-                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
-                    node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
-                    node->m_cosThetaQuartic->SetValue(*m_cosThetaQuartic);
-                    node->m_sign3->SetValue(*m_sign3);
-                    node->m_sign4->SetValue(*m_sign4);
-                    break;
-                }
+            case 2:
+            {
+                node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                node->m_sign0->SetValue(*m_sign0);
+                break;
             }
+            case 3:
+            {
+                node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
+                node->m_sign1->SetValue(*m_sign1);
+                node->m_sign2->SetValue(*m_sign2);
+                break;
+            }
+            case 4:
+            {
+                node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
+                node->m_cosThetaQuartic->SetValue(*m_cosThetaQuartic);
+                node->m_sign3->SetValue(*m_sign3);
+                node->m_sign4->SetValue(*m_sign4);
+                break;
+            }
+}
 
             node->m_tempMatrix->SetValue(*m_tempMatrix);
 
@@ -463,8 +312,8 @@ public:
             node->m_lambdaMin = m_lambdaMin;
             node->m_iter = m_iter;
             node->m_lambda = m_lambda;
-        }
-    }
+}
+}
 
     // request matrices needed to do node function value evaluation
     virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
@@ -504,6 +353,34 @@ public:
         ReleaseMatrixToPool(m_inputMagnitude, matrixPool);
         ReleaseMatrixToPool(m_weightMagnitude, matrixPool);
         ReleaseMatrixToPool(m_tempMatrix, matrixPool);
+    }
+
+    void Save(File& fstream) const override
+    {
+        Base::Save(fstream);
+
+        fstream << m_outputDimension;
+        fstream << m_marginCoefficient;
+        fstream << m_base;
+        fstream << m_gamma;
+        fstream << m_power;
+        fstream << m_lambdaMin;
+        fstream << m_iter;
+        fstream << m_lambda;
+    }
+
+    void Load(File& fstream, size_t modelVersion) override
+    {
+        Base::Load(fstream, modelVersion);
+
+        fstream >> m_outputDimension;
+        fstream >> m_marginCoefficient;
+        fstream >> m_base;
+        fstream >> m_gamma;
+        fstream >> m_power;
+        fstream >> m_lambdaMin;
+        fstream >> m_iter;
+        fstream >> m_lambda;
     }
 
 private:
@@ -554,9 +431,8 @@ public:
 
 public:
     FeatureNormalizeNode(const ScriptableObjects::IConfigRecordPtr configp) :
-        FeatureNormalizeNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"normalizeType"))
+        FeatureNormalizeNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"featureNormalizeType"))
     {
-        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
     }
 
@@ -584,8 +460,8 @@ public:
         {
             Matrix<ElemType>::InnerProduct(Value(), Gradient(), *m_temp1, true);
             m_temp1->RowElementDivideBy(*m_magnitude);
-            m_temp2->AssignSignOf(X);
-            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, *m_temp2, *m_temp1, (ElemType)0, X_gradient);
+            X_gradient.AssignSignOf(X);
+            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, X_gradient, *m_temp1, (ElemType)1, X_gradient);
         }
         else if (2 == m_normalizeType)
         {
@@ -624,10 +500,7 @@ public:
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
-        Base::Validate(isFinalValidationPass);
-
-        InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
-        SetDims(TensorShape(InputRef(0).Value().GetNumRows()), HasMBLayout());
+        ValidateUnaryMap(isFinalValidationPass);
     }
 
     virtual void CopyTo(ComputationNodeBasePtr nodeP, const std::wstring& newName, const CopyNodeFlags flags) const override
@@ -661,6 +534,20 @@ public:
         ReleaseMatrixToPool(m_temp2, matrixPool);
     }
 
+    void Save(File& fstream) const override
+    {
+        Base::Save(fstream);
+
+        fstream << m_normalizeType;
+    }
+
+    void Load(File& fstream, size_t modelVersion) override
+    {
+        Base::Load(fstream, modelVersion);
+
+        fstream >> m_normalizeType;
+    }
+
 private:
     size_t m_inputDimension; // n
     size_t m_minibatchSize; // m
@@ -685,7 +572,6 @@ public:
             configp->Get(L"bias"), configp->Get(L"annealBias"),
             configp->Get(L"biasBase"), configp->Get(L"biasGamma"), configp->Get(L"biasPower"), configp->Get(L"biasMin"), configp->Get(L"biasMax"))
     {
-        // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
     }
 
@@ -711,14 +597,22 @@ public:
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
-        FrameRange fr(InputRef(0).GetMBLayout());
-        auto X = InputRef(1).ValueFor(fr);
-        auto& weight = InputRef(2).Value();
-        auto X_gradient = InputRef(1).GradientFor(fr);
-        auto& weightGradient = InputRef(2).Gradient();
+        if (1 == inputIndex)
+        {
+            ++m_iter;
 
-        Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
-        Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
+            FrameRange fr(InputRef(0).GetMBLayout());
+            auto& weight = InputRef(2).Value();
+            auto X_gradient = InputRef(1).GradientFor(fr);
+            Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
+        }
+        else if (2 == inputIndex)
+        {
+            FrameRange fr(InputRef(0).GetMBLayout());
+            auto X = InputRef(1).ValueFor(fr);
+            auto& weightGradient = InputRef(2).Gradient();
+            Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
+        }
     }
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
@@ -733,7 +627,6 @@ public:
             m_bias = m_biasBase * pow(1 + m_biasGamma * m_iter, -m_biasPower);
             m_bias = std::max(m_bias, m_biasMin);
             m_bias = std::min(m_bias, m_biasMax);
-            ++m_iter;
         }
 
         if (m_weightNormalize)
@@ -798,6 +691,38 @@ public:
         ReleaseMatrixToPool(m_labelValue, matrixPool);
         if (m_weightNormalize)
             ReleaseMatrixToPool(m_weightMagnitude, matrixPool);
+    }
+
+    void Save(File& fstream) const override
+    {
+        Base::Save(fstream);
+
+        fstream << m_outputDimension;
+        fstream << m_weightNormalize;
+        fstream << m_bias;
+        fstream << m_annealBias;
+        fstream << m_biasBase;
+        fstream << m_biasGamma;
+        fstream << m_biasPower;
+        fstream << m_biasMin;
+        fstream << m_biasMax;
+        fstream << m_iter;
+    }
+
+    void Load(File& fstream, size_t modelVersion) override
+    {
+        Base::Load(fstream, modelVersion);
+
+        fstream >> m_outputDimension;
+        fstream << m_weightNormalize;
+        fstream << m_bias;
+        fstream << m_annealBias;
+        fstream << m_biasBase;
+        fstream << m_biasGamma;
+        fstream << m_biasPower;
+        fstream << m_biasMin;
+        fstream << m_biasMax;
+        fstream << m_iter;
     }
 
 private:
