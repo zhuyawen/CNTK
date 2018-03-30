@@ -714,15 +714,15 @@ public:
         Base::Load(fstream, modelVersion);
 
         fstream >> m_outputDimension;
-        fstream << m_weightNormalize;
-        fstream << m_bias;
-        fstream << m_annealBias;
-        fstream << m_biasBase;
-        fstream << m_biasGamma;
-        fstream << m_biasPower;
-        fstream << m_biasMin;
-        fstream << m_biasMax;
-        fstream << m_iter;
+        fstream >> m_weightNormalize;
+        fstream >> m_bias;
+        fstream >> m_annealBias;
+        fstream >> m_biasBase;
+        fstream >> m_biasGamma;
+        fstream >> m_biasPower;
+        fstream >> m_biasMin;
+        fstream >> m_biasMax;
+        fstream >> m_iter;
     }
 
 private:
