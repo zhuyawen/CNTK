@@ -36,8 +36,6 @@ template <class ElemType>
 class MarginInnerProductNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<3>
 {
 
-//#define WEIGHT_GRADIENT_CORRECTION
-
 public:
     typedef ComputationNodeNonLooping<ElemType> Base; UsingComputationNodeMembersBoilerplate;
     static const std::wstring TypeName() { return L"MarginInnerProduct"; }
@@ -109,14 +107,12 @@ public:
         if (1 == inputIndex)
         {
             auto X_gradient = InputRef(1).GradientFor(fr);
+            Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
 
             switch (m_marginCoefficient)
             {
                 case 1:
-                {
-                    Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
                     break;
-                }
                 case 2:
                 {
                     Matrix<ElemType>::AsoftmaxBackward2(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
@@ -142,156 +138,7 @@ public:
         else if (2 == inputIndex)
         {
             auto& weightGradient = InputRef(2).Gradient();
-
-#ifndef WEIGHT_GRADIENT_CORRECTION
             Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
-#else
-            weightGradient.SetValue(0.0);
-            switch (m_marginCoefficient)
-            {
-                case 1:
-                {
-                    Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
-                    break;
-                }
-                case 2:
-                {
-                    size_t labelValue = 0;
-                    ElemType YValue = 0.0;
-                    ElemType coeff_w = 0.0;
-                    ElemType coeff_x = 0.0;
-                    ElemType coeff_norm = 0.0;
-                    m_X_T->SetValue(X.Transpose());
-                    size_t index = 0;
-                    for (size_t i(0); i < m_minibatchSize; ++i)
-                    {
-                        labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimension; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                            else
-                            {
-                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (2.0 * m_sign0Array[index] * m_cosThetaQuadraticArray[index] + 1);
-                                coeff_x = 4.0 * m_sign0Array[index] * m_cosThetaArray[index];
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                        }
-                    }
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
-                    break;
-                }
-                case 3:
-                {
-                    size_t labelValue = 0;
-                    ElemType YValue = 0.0;
-                    ElemType coeff_w = 0.0;
-                    ElemType coeff_x = 0.0;
-                    ElemType coeff_norm = 0.0;
-                    m_X_T->SetValue(X.Transpose());
-                    size_t index = 0;
-                    for (size_t i(0); i < m_minibatchSize; ++i)
-                    {
-                        labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimension; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                            else
-                            {
-                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (8.0 * m_sign1Array[index] * m_cosThetaCubicArray[index] - m_sign2Array[index]);
-                                coeff_x = m_sign1Array[index] * (12.0 * m_cosThetaQuadraticArray[index] - 3.0);
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                        }
-                    }
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
-                    break;
-                }
-                case 4:
-                {
-                    size_t labelValue = 0;
-                    ElemType YValue = 0.0;
-                    ElemType coeff_w = 0.0;
-                    ElemType coeff_x = 0.0;
-                    ElemType coeff_norm = 0.0;
-                    m_X_T->SetValue(X.Transpose());
-                    size_t index = 0;
-                    for (size_t i(0); i < m_minibatchSize; ++i)
-                    {
-                        labelValue = (size_t)(m_labelArray[i]);
-                        for (size_t j(0); j < m_outputDimension; ++j, ++index)
-                        {
-                            if (j != labelValue)
-                            {
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda);
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                            else
-                            {
-                                coeff_w = 1.0 / (-m_inputMagnitudeArray[i]) * (m_sign3Array[index] * (24.0 * m_cosThetaQuarticArray[index] - 8.0 * m_cosThetaQuadraticArray[index] - 1.0) - m_sign4Array[index]);
-                                coeff_x = m_sign3Array[index] * (32.0 * m_cosThetaCubicArray[index] - 16.0 * m_cosThetaArray[index]);
-                                coeff_norm = sqrt(coeff_w * coeff_w + coeff_x * coeff_x);
-                                coeff_w /= coeff_norm;
-                                coeff_x /= coeff_norm;
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_w;
-                                m_row->AssignRowSliceValuesOf(weight, j, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-
-                                YValue = m_gradientArray[index] / (1.0 + m_lambda) * coeff_x;
-                                m_row->AssignRowSliceValuesOf(*m_X_T, i, 1);
-                                Matrix<ElemType>::Scale(YValue, *m_row, *m_row);
-                                weightGradient.AddToRowSliceValuesOf(*m_row, j, 1);
-                            }
-                        }
-                    }
-                    Matrix<ElemType>::MultiplyAndWeightedAdd(m_lambda / (1.0 + m_lambda), Gradient(), false, X, true, 1.0, weightGradient, nullptr);
-                    break;
-                }
-                default:
-                {
-                    LogicError("This marginCoefficient is not supported yet.");
-                }
-            }
-#endif
         }
     }
 
@@ -556,7 +403,7 @@ public:
 
 public:
     FeatureNormalizeNode(const ScriptableObjects::IConfigRecordPtr configp) :
-        FeatureNormalizeNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"normalizeType"))
+        FeatureNormalizeNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"featureNormalizeType"))
     {
         // To support legacy models, runCount is optional. Hence, we cannot use NumInputs<>, and must check ourselves in Validation.
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
@@ -588,23 +435,19 @@ public:
             m_temp1->RowElementDivideBy(*m_magnitude);
             X_gradient.AssignSignOf(X);
             Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, X_gradient, *m_temp1, (ElemType)1, X_gradient);
-
-            m_temp2->SetValue(Gradient());
-            m_temp2->RowElementDivideBy(*m_magnitude);
-            Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
         }
         else if (2 == m_normalizeType)
         {
             Matrix<ElemType>::InnerProduct(Value(), Gradient(), *m_temp1, true);
             m_temp1->RowElementDivideBy(*m_magnitude);
             Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, Value(), *m_temp1, (ElemType)0, X_gradient);
-
-            m_temp2->SetValue(Gradient());
-            m_temp2->RowElementDivideBy(*m_magnitude);
-            Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
         }
         else
             LogicError("This normalizeType is not supported yet.");
+
+        m_temp2->SetValue(Gradient());
+        m_temp2->RowElementDivideBy(*m_magnitude);
+        Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
     }
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
@@ -613,19 +456,16 @@ public:
         auto X = InputRef(0).ValueFor(fr);
 
         if (1 == m_normalizeType)
-        {
             X.VectorNorm1(*m_magnitude, true);
-            Value().SetValue(X);
-            Value().RowElementDivideBy(*m_magnitude);
-        }
         else if (2 == m_normalizeType)
-        {
             X.VectorNorm2(*m_magnitude, true);
-            Value().SetValue(X);
-            Value().RowElementDivideBy(*m_magnitude);
-        }
         else
             LogicError("This normalizeType is not supported yet.");
+
+        m_temp1->SetValue((ElemType)1e-6);
+        Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp1, *m_magnitude);
+        Value().SetValue(X);
+        Value().RowElementDivideBy(*m_magnitude);
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return true; }
@@ -633,10 +473,7 @@ public:
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
-        Base::Validate(isFinalValidationPass);
-
-        InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
-        SetDims(TensorShape(InputRef(0).Value().GetNumRows()), HasMBLayout());
+        ValidateUnaryMap(isFinalValidationPass);
     }
 
     virtual void CopyTo(ComputationNodeBasePtr nodeP, const std::wstring& newName, const CopyNodeFlags flags) const override

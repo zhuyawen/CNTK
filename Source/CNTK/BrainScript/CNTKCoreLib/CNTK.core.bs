@@ -65,9 +65,9 @@ MarginInnerProductLayer {inputDimension, outputDimension, base, gamma, power, la
 
 # FeatureNormalizeLayer -- create a feature normalization layer
 # Note: outputDimension may describe a tensor as well.
-FeatureNormalizeLayer {normalizeType} =
+FeatureNormalizeLayer {featureNormalizeType=2} =
 {
-    apply (feature) = FeatureNormalize(feature, normalizeType=normalizeType)
+    apply (feature) = FeatureNormalize(feature, featureNormalizeType=featureNormalizeType)
 }.apply
 
 # AdditiveFullConnectionLayer -- create a label-specific-add full connection layer
@@ -493,7 +493,7 @@ CNTK2 = [
     #
     # FeatureNormalize node
     #
-    FeatureNormalize(feature, normalizeType=2, tag='') = 
+    FeatureNormalize(feature, featureNormalizeType=2, tag='') = 
         new ComputationNode [ operation = 'FeatureNormalize' ; inputs = _AsNodes (feature) /*plus the function args*/ ]
 
     #

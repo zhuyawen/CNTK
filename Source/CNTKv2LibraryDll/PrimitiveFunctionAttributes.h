@@ -105,14 +105,14 @@ namespace CNTK
     /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductPower = L"marginInnerProductOutputPower";
     /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductLambdaMin = L"marginInnerProductOutputLambdaMin";
     /*static*/ const std::wstring PrimitiveFunction::AttributeMarginInnerProductMarginCoefficient = L"marginCoefficient";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeFeatureNormalizeNormalizeType = L"FeatureNormalizeNormalizeType";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionOutputDimension = L"additiveFullConnectionOutputDimension";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionWeightNormalize = L"additiveFullConnectionWeightNormalize";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBias = L"additiveFullConnectionBias";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionAnnealBias = L"additiveFullConnectionAnnealBias";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasBase = L"additiveFullConnectionBiasBase";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasGamma = L"additiveFullConnectionBiasGamma";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasPower = L"additiveFullConnectionBiasPower";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasMin = L"additiveFullConnectionBiasMin";
-    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasMax = L"additiveFullConnectionBiasMax";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeFeatureNormalizeNormalizeType = L"featureNormalizeType";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionOutputDimension = L"outputDimension";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionWeightNormalize = L"weightNormalize";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBias = L"bias";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionAnnealBias = L"annealBias";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasBase = L"biasBase";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasGamma = L"biasGamma";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasPower = L"biasPower";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasMin = L"biasMin";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasMax = L"biasMax";
 }
