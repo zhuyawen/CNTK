@@ -53,7 +53,7 @@ public:
         ElemType base = 0, ElemType gamma = 0, ElemType power = 1, ElemType lambdaMin = 0, size_t marginCoefficient = 2)
         : Base(deviceId, name), m_outputDimension(outputDimension), m_base(base), m_gamma(gamma), m_power(power), m_lambdaMin(lambdaMin), m_marginCoefficient(marginCoefficient)
     {
-        m_iter = 1;
+        m_iter = 0;
     }
 
     virtual void UpdateFunctionMBSize() override
@@ -105,8 +105,6 @@ public:
 
         if (1 == inputIndex)
         {
-            ++m_iter;
-
             auto X_gradient = InputRef(1).GradientFor(fr);
             Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
 
@@ -149,9 +147,6 @@ public:
         InputRef(0).MaskedValueFor(fr).VectorMax(*m_label, *m_labelValue, true /*isColWise*/);
         auto X = InputRef(1).ValueFor(fr);
         auto& weight = InputRef(2).Value();
-
-        m_lambda = m_base * pow(1 + m_gamma * m_iter, -m_power);
-        m_lambda = std::max(m_lambda, m_lambdaMin);
 
         //Matrix<ElemType>::InnerProduct(weight, weight, *m_weightMagnitude, false);
         //m_weightMagnitude->InplaceSqrt();
@@ -225,6 +220,10 @@ public:
 
         if (Environment().IsTraining())
         {
+            ++m_iter;
+            m_lambda = m_base * pow(1 + m_gamma * m_iter, -m_power);
+            m_lambda = std::max(m_lambda, m_lambdaMin);
+
             switch (m_marginCoefficient)
             {
                 case 1:
@@ -600,8 +599,6 @@ public:
     {
         if (1 == inputIndex)
         {
-            ++m_iter;
-
             FrameRange fr(InputRef(0).GetMBLayout());
             auto& weight = InputRef(2).Value();
             auto X_gradient = InputRef(1).GradientFor(fr);
@@ -623,13 +620,6 @@ public:
         auto X = InputRef(1).ValueFor(fr);
         auto& weight = InputRef(2).Value();
 
-        if (m_annealBias)
-        {
-            m_bias = m_biasBase * pow(1 + m_biasGamma * m_iter, -m_biasPower);
-            m_bias = std::max(m_bias, m_biasMin);
-            m_bias = std::min(m_bias, m_biasMax);
-        }
-
         if (m_weightNormalize)
         {
             weight.VectorNorm2(*m_weightMagnitude, false);
@@ -640,6 +630,14 @@ public:
 
         if (Environment().IsTraining())
         {
+            if (m_annealBias)
+            {
+                m_bias = m_biasBase * pow(1 + m_biasGamma * m_iter, -m_biasPower);
+                m_bias = std::max(m_bias, m_biasMin);
+                m_bias = std::min(m_bias, m_biasMax);
+                ++m_iter;
+            }
+
             Matrix<ElemType>::LabelAdd(*m_label, m_bias, Value());
         }
     }
