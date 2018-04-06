@@ -366,7 +366,6 @@ public:
         fstream << m_power;
         fstream << m_lambdaMin;
         fstream << m_iter;
-        fstream << m_lambda;
     }
 
     void Load(File& fstream, size_t modelVersion) override
@@ -380,7 +379,6 @@ public:
         fstream >> m_power;
         fstream >> m_lambdaMin;
         fstream >> m_iter;
-        fstream >> m_lambda;
     }
 
 private:
@@ -640,7 +638,7 @@ public:
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
-    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return false; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return true; }
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {

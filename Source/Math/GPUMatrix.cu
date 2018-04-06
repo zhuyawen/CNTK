@@ -3712,13 +3712,12 @@ void GPUMatrix<ElemType>::AsoftmaxBackward4(ElemType lambda, size_t inputDimensi
 
 #pragma region AMsoftmax
 template <class ElemType>
-__global__ void _labelAdd(const CUDA_LONG& minibatchSize, const CUDA_LONG& outputDimension, const ElemType* label, const ElemType& bias, ElemType* value)
+__global__ void _labelAdd(CUDA_LONG outputDimension, const ElemType* label, ElemType bias, ElemType* value)
 {
     CUDA_LONG id = GridDim::GetLinearThreadId();
 
     CUDA_LONG labelValue = static_cast<CUDA_LONG>(label[id]);
-    CUDA_LONG index = id * outputDimension + labelValue;
-    value[index] += bias;
+    value[id * outputDimension + labelValue] += bias;
 }
 
 template <class ElemType>
@@ -3729,7 +3728,7 @@ void GPUMatrix<ElemType>::LabelAdd(const GPUMatrix<ElemType>& label, ElemType bi
 
     SyncGuard syncGuard;
     GridDim grid(minibatchSize);
-    _labelAdd<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (minibatchSize, outputDimension, label.Data(), bias, value.Data());
+    _labelAdd<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (outputDimension, label.Data(), bias, value.Data());
 }
 #pragma endregion
 
