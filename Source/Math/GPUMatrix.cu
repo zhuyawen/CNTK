@@ -3717,7 +3717,9 @@ __global__ void _labelAdd(CUDA_LONG outputDimension, const ElemType* label, Elem
     CUDA_LONG id = GridDim::GetLinearThreadId();
 
     CUDA_LONG labelValue = static_cast<CUDA_LONG>(label[id]);
-    value[id * outputDimension + labelValue] += bias;
+    CUDA_LONG index = id * outputDimension + labelValue;
+    if(value[index] > -bias)
+        value[index] += bias;
 }
 
 template <class ElemType>

@@ -5267,7 +5267,9 @@ void CPUMatrix<ElemType>::LabelAdd(const CPUMatrix<ElemType>& label, ElemType bi
     for (size_t i(0); i < minibatchSize; ++i)
     {
         labelValue = static_cast<size_t>(labelPtr[i]);
-        valuePtr[i * outputDimension + labelValue] += bias;
+        size_t index = i * outputDimension + labelValue;
+        if(valuePtr[index] > -bias)
+            valuePtr[index] += bias;
     }
 }
 #pragma endregion

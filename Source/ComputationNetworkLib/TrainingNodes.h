@@ -223,30 +223,33 @@ public:
 
         Matrix<ElemType>::Multiply(weight, false, X, false, Value());
 
-        switch (m_marginCoefficient)
+        if (Environment().IsTraining())
         {
-            case 1:
-                break;
-            case 2:
+            switch (m_marginCoefficient)
             {
-                Matrix<ElemType>::AsoftmaxForward2(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                    *m_cosThetaQuadratic, *m_sign0);
-                break;
+                case 1:
+                    break;
+                case 2:
+                {
+                    Matrix<ElemType>::AsoftmaxForward2(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                        *m_cosThetaQuadratic, *m_sign0);
+                    break;
+                }
+                case 3:
+                {
+                    Matrix<ElemType>::AsoftmaxForward3(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                        *m_cosTheta, *m_cosThetaCubic, *m_sign1, *m_sign2);
+                    break;
+                }
+                case 4:
+                {
+                    Matrix<ElemType>::AsoftmaxForward4(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                        *m_cosThetaQuadratic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
+                    break;
+                }
+                default:
+                    LogicError("This marginCoefficient is not supported yet.");
             }
-            case 3:
-            {
-                Matrix<ElemType>::AsoftmaxForward3(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                    *m_cosTheta, *m_cosThetaCubic, *m_sign1, *m_sign2);
-                break;
-            }
-            case 4:
-            {
-                Matrix<ElemType>::AsoftmaxForward4(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                    *m_cosThetaQuadratic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
-                break;
-            }
-            default:
-                LogicError("This marginCoefficient is not supported yet.");
         }
     }
 
@@ -634,7 +637,11 @@ public:
         }
 
         Matrix<ElemType>::Multiply(weight, false, X, false, Value());
-        Matrix<ElemType>::LabelAdd(*m_label, m_bias, Value());
+
+        if (Environment().IsTraining())
+        {
+            Matrix<ElemType>::LabelAdd(*m_label, m_bias, Value());
+        }
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
