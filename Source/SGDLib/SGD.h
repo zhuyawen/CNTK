@@ -58,6 +58,14 @@ enum class GradientsUpdateType : int
     FSAdaGrad
 };
 
+enum class AdjustType : int
+{
+    None,
+    Poly,
+    Inv,
+    Exp
+};
+
 // modelParallelSGD can be combined with dataParallelSGD/modelAveragingSGD/blockMomentumSGD 
 // but dataParallelSGD/modelAveragingSGD/blockMomentumSGD are mutually exclusive (at least at the moment)
 // we assign the lower 8 bits to the enumerate data parallelization methods 
@@ -99,6 +107,27 @@ struct GradientUpdateInfo
     // for FSAdaGrad:
     double targetAdagradAvDenom = 1;
     size_t varianceTimeConstant = 2 * 3600 * 100; // originally was: 2h of speech
+};
+
+// learning rate adjust per iteration info
+struct LRAPIInfo
+{
+    AdjustType adjustType;
+    size_t iter = 0;
+    size_t maxIter;
+    double base_;
+    double gamma;
+    double power;
+    size_t numItersToShowLR;
+
+    LRAPIInfo() {}
+    void setIter(size_t _iter) { iter = _iter; }
+    void setAdjustType(AdjustType _adjustType) { adjustType = _adjustType; }
+    void setMaxIter(size_t _maxIter) { maxIter = _maxIter; }
+    void setBase(double _base_) { base_ = _base_; }
+    void setGamma(double _gamma) { gamma = _gamma; }
+    void setPower(double _power) { power = _power; }
+    void setNumItersToShowLR(size_t _numItersToShowLR) { numItersToShowLR = _numItersToShowLR; }
 };
 
 struct BestEpoch
@@ -327,6 +356,9 @@ protected:
     // true: disable Regularization
     // false: enable Regularization (default)
     bool m_disableRegInBatchNormalization;
+
+    // Learning rate adjust per Iteration
+    LRAPIInfo m_lrapiInfo;
 };
 
 template <class ElemType>
@@ -496,7 +528,7 @@ protected:
                          const int epochNumber,
                          const size_t epochSize,
                          IDataReader* trainSetDataReader,
-                         const double learnRatePerSample,
+                         double learnRatePerSample,
                          size_t tunedMBSize,
                          const std::vector<ComputationNodeBasePtr>& featureNodes,
                          const std::vector<ComputationNodeBasePtr>& labelNodes,

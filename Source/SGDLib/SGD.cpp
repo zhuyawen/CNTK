@@ -978,7 +978,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                                     const int epochNumber,
                                     const size_t epochSize,
                                     IDataReader* trainSetDataReader,
-                                    const double learnRatePerSample,
+                                    double learnRatePerSample,
                                     size_t tunedMBSize,
                                     const std::vector<ComputationNodeBasePtr>& featureNodes,
                                     const std::vector<ComputationNodeBasePtr>& labelNodes,
@@ -1252,6 +1252,23 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 // ===========================================================
                 // backprop
                 // ===========================================================
+
+
+                // adjust learning rate by iteration
+                if (m_lrapiInfo.adjustType != AdjustType::None)
+                {
+                    ++m_lrapiInfo.iter;
+                    if (AdjustType::Poly == m_lrapiInfo.adjustType)
+                        learnRatePerSample = m_lrapiInfo.base_ * pow(1 - 1.0 * m_lrapiInfo.iter / m_lrapiInfo.maxIter, m_lrapiInfo.power);
+                    else if (AdjustType::Inv == m_lrapiInfo.adjustType)
+                        learnRatePerSample = m_lrapiInfo.base_ * pow(1 + m_lrapiInfo.gamma * m_lrapiInfo.iter, -m_lrapiInfo.power);
+                    else if (AdjustType::Exp == m_lrapiInfo.adjustType)
+                        learnRatePerSample = m_lrapiInfo.base_ * pow(m_lrapiInfo.gamma, m_lrapiInfo.iter);
+
+                    if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
+                        fprintf(stderr, "Iteration %d: LR = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);
+                }
+
 
                 if (learnRatePerSample > 0.01 * m_minLearnRate) // only compute gradient when learning rate is large enough
                     net->Backprop(criterionNodes[0]);
@@ -2906,6 +2923,31 @@ SGDParams::SGDParams(const ConfigRecordType& configSGD, size_t sizeofElemType)
     m_loadBestModel = configAALR(L"loadBestModel", true);
     m_useCVSetControlLRIfCVExists = configAALR(L"UseCVSetControlLRIfCVExists", true);
     m_useEvalCriterionControlLR = configAALR(L"UseEvalCriterionControlLR", false);
+
+#pragma region Adjust learning rate after each iteration
+    wstring adjustType = configAALR(L"adjustType", L"none");
+    if (EqualCI(adjustType, L"none"))
+        m_lrapiInfo.adjustType = AdjustType::None;
+    else if (EqualCI(adjustType, L"poly"))
+        m_lrapiInfo.adjustType = AdjustType::Poly;
+    else if (EqualCI(adjustType, L"inv"))
+        m_lrapiInfo.adjustType = AdjustType::Inv;
+    else if (EqualCI(adjustType, L"exp"))
+        m_lrapiInfo.adjustType = AdjustType::Exp;
+    else
+        LogicError("Invalid learning rate adjust type.");
+
+    m_lrapiInfo.iter = configAALR(L"iter", (size_t) 0);
+    m_lrapiInfo.maxIter = configAALR(L"maxIter", (size_t) 0);
+    if (AdjustType::Poly == m_lrapiInfo.adjustType && m_lrapiInfo.maxIter < 1)
+        LogicError("maxIteration must be greater than 0.");
+    m_lrapiInfo.base_ = configAALR(L"base", 0.0);
+    m_lrapiInfo.gamma = configAALR(L"gamma", 0.0);
+    m_lrapiInfo.power = configAALR(L"power", 1.0);
+    m_lrapiInfo.numItersToShowLR = configAALR(L"numItersToShowLR", (size_t) 1);
+    if (m_lrapiInfo.numItersToShowLR < 1)
+        LogicError("numItersToShowLR must be greater than 0.");
+#pragma endregion
 
     // TODO: mbSize and truncated should be specified differently for truncated BPTT:
     //       mbSize = total number of samples after which a model update should happen
