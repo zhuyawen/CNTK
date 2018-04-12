@@ -571,7 +571,7 @@ void SGD<ElemType>::TrainOrAdaptModel(int startEpoch, ComputationNetworkPtr net,
 
         learnRateInitialized = true;
 
-        if (learnRatePerSample < m_minLearnRate)
+        if (learnRatePerSample < m_minLearnRate || m_lrapiInfo.reachMinLearningRate)
         {
             LOGPRINTF(stderr, "Learn Rate Per Sample for Epoch[%d] = %.8g is less than minLearningRatePerSample %.8g. Training complete.\n",
                       i + 1, learnRatePerSample, m_minLearnRate);
@@ -1272,13 +1272,17 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 }
 
 
-                if (learnRatePerSample > 0.01 * m_minLearnRate) // only compute gradient when learning rate is large enough
+                //if (learnRatePerSample > 0.01 * m_minLearnRate) // only compute gradient when learning rate is large enough
                     net->Backprop(criterionNodes[0]);
 
                 // house-keeping for sub-minibatching
                 if (actualNumSubminibatches > 1)
                     smbDispatcher.DoneWithCurrentSubMinibatch(ismb); // page state out
             }                                                        // end sub-minibatch loop
+
+            if (learnRatePerSample < m_minLearnRate)
+                m_lrapiInfo.setReachMinLearningRate(true);
+
             if (actualNumSubminibatches > 1)
                 smbDispatcher.DoneWithCurrentMinibatch();
         } // if (actualMBSize > 0)
@@ -1387,7 +1391,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
         auto profWeights = ProfilerTimeBegin();
 
         // update model parameters
-        if ((aggregateNumSamples > 0) && (learnRatePerSample > m_minLearnRate * 0.01))
+        if ((aggregateNumSamples > 0) /*&& (learnRatePerSample > m_minLearnRate * 0.01)*/)
         {
 #if 1       // BUGBUG: We must skip gaps in our momentum, clipping, regularization etc. criteria.
             // This will break test cases. So for now, we will only enable this for per-sample criteria.
