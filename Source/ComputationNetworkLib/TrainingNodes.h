@@ -461,7 +461,7 @@ public:
             Matrix<ElemType>::InnerProduct(Value(), Gradient(), *m_temp1, true);
             m_temp1->RowElementDivideBy(*m_magnitude);
             X_gradient.AssignSignOf(X);
-            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, X_gradient, *m_temp1, (ElemType)1, X_gradient);
+            Matrix<ElemType>::ColumnwiseScaleAndWeightedAdd((ElemType)-1, X_gradient, *m_temp1, (ElemType)0, X_gradient);
         }
         else if (2 == m_normalizeType)
         {
