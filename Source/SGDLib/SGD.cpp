@@ -1264,6 +1264,8 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                         learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(1 + m_lrapiInfo.gamma * m_lrapiInfo.iter, -m_lrapiInfo.power);
                     else if (AdjustType::Exp == m_lrapiInfo.adjustType)
                         learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, m_lrapiInfo.iter);
+                    else if (AdjustType::Step == m_lrapiInfo.adjustType)
+                        learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, floor(1.0 * m_lrapiInfo.iter / m_lrapiInfo.step));
 
                     if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
                         fprintf(stderr, " Iteration %d: learning rate per sample = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);
@@ -2926,21 +2928,26 @@ SGDParams::SGDParams(const ConfigRecordType& configSGD, size_t sizeofElemType)
 
 #pragma region Adjust learning rate after each iteration
     wstring adjustType = configAALR(L"adjustType", L"none");
-    if (EqualCI(adjustType, L"none"))
+    if (EqualCI(adjustType, L"none") || EqualCI(adjustType, L"None"))
         m_lrapiInfo.adjustType = AdjustType::None;
-    else if (EqualCI(adjustType, L"poly"))
+    else if (EqualCI(adjustType, L"poly") || EqualCI(adjustType, L"Poly"))
         m_lrapiInfo.adjustType = AdjustType::Poly;
-    else if (EqualCI(adjustType, L"inv"))
+    else if (EqualCI(adjustType, L"inv") || EqualCI(adjustType, L"Inv"))
         m_lrapiInfo.adjustType = AdjustType::Inv;
-    else if (EqualCI(adjustType, L"exp"))
+    else if (EqualCI(adjustType, L"exp") || EqualCI(adjustType, L"Exp"))
         m_lrapiInfo.adjustType = AdjustType::Exp;
+    else if (EqualCI(adjustType, L"step") || EqualCI(adjustType, L"Step"))
+        m_lrapiInfo.adjustType = AdjustType::Step;
     else
         LogicError("Invalid learning rate adjust type.");
 
     m_lrapiInfo.iter = configAALR(L"iter", (size_t) 0);
     m_lrapiInfo.maxIter = configAALR(L"maxIter", (size_t) 0);
+    m_lrapiInfo.step = configAALR(L"step", (size_t) 0);
     if (AdjustType::Poly == m_lrapiInfo.adjustType && m_lrapiInfo.maxIter < 1)
         LogicError("maxIteration must be greater than 0.");
+    if (AdjustType::Step == m_lrapiInfo.adjustType && m_lrapiInfo.step < 1)
+        LogicError("step must be greater than 0.");
     m_lrapiInfo.base_ = configAALR(L"base", 0.0);
     m_lrapiInfo.gamma = configAALR(L"gamma", 0.0);
     m_lrapiInfo.power = configAALR(L"power", 1.0);
