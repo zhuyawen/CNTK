@@ -1258,6 +1258,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 if (m_lrapiInfo.adjustType != AdjustType::None)
                 {
                     ++m_lrapiInfo.iter;
+                    m_lrapiInfo.iter = std::min(m_lrapiInfo.iter, m_lrapiInfo.maxIter);
                     if (AdjustType::Poly == m_lrapiInfo.adjustType)
                         learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(1 - 1.0 * m_lrapiInfo.iter / m_lrapiInfo.maxIter, m_lrapiInfo.power);
                     else if (AdjustType::Inv == m_lrapiInfo.adjustType)
