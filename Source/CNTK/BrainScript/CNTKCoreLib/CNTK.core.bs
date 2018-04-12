@@ -72,7 +72,7 @@ FeatureNormalizeLayer {featureNormalizeType=2} =
 
 # AdditiveFullConnectionLayer -- create a label-specific-add full connection layer
 # Note: outputDimension may describe a tensor as well.
-AdditiveFullConnectionLayer {inputDimension, outputDimension, weightNormalize=true, bias=0, annealBias=false, biasBase=0, biasGamma=0, biasPower=0, biasMin=0, biasMax=0, init='glorotUniform', initValueScale=1} =
+AdditiveFullConnectionLayer {inputDimension, outputDimension, weightNormalize=true, bias=0, annealBias=false, biasBase=0, biasGamma=0, biasPower=1, biasMin=0, biasMax=0, init='glorotUniform', initValueScale=1} =
 {
     W = ParameterTensor {_ConcatArrays (outputDimension, inputDimension), init=init, initValueScale=initValueScale}
 
