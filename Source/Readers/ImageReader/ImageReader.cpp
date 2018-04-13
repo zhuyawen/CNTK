@@ -64,13 +64,8 @@ ImageReader::ImageReader(const ConfigParameters& config)
     ConfigParameters featureStream = config(featureName);
 
     std::vector<Transformation> transformations;
-    bool customFlag = false;
-    stringargvector flag;
-    flag = stringargvector(featureStream(L"customCrop", L"false"));
-    if (flag[0] == L"true")
-        customFlag = true;
 
-    if (customFlag)
+    if (configHelper.GetCustomCrop())
         transformations.push_back(Transformation{ std::make_shared<CustomTransformer>(featureStream), featureName });
     else
     {

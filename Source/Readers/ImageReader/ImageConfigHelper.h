@@ -71,6 +71,13 @@ public:
 
     static CropType ParseCropType(const std::string &src);
 
+
+    bool GetCustomCrop() const
+    {
+        return m_customCrop;
+    }
+
+
 private:
     ImageConfigHelper(const ImageConfigHelper&) = delete;
     ImageConfigHelper& operator=(const ImageConfigHelper&) = delete;
@@ -81,6 +88,7 @@ private:
     int m_cpuThreadCount;
     bool m_randomize;
     bool m_grayscale;
+    bool m_customCrop;
     CropType m_cropType;
 };
 
