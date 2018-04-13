@@ -2520,6 +2520,7 @@ void SGD<ElemType>::SaveCheckPointInfo(const size_t epoch, const size_t totalSam
             fstream.PutMarker(FileMarker::fileMarkerBeginSection, L"BCKP");
             fstream.PutMarker(FileMarker::fileMarkerBeginSection, L"BLearnRate");
             fstream << totalSamplesSeen << learnRatePerSample << prevCriterion;
+            fstream << m_lrapiInfo.adjustType << m_lrapiInfo.iter << m_lrapiInfo.maxIter << m_lrapiInfo.base_ << m_lrapiInfo.gamma << m_lrapiInfo.power << m_lrapiInfo.numItersToShowLR << m_lrapiInfo.reachMinLearningRate;
             fstream.PutMarker(FileMarker::fileMarkerEndSection, L"ELearnRate");
 
             fstream.PutMarker(FileMarker::fileMarkerBeginSection, L"BMinibatchSize");
@@ -2622,6 +2623,7 @@ void SGD<ElemType>::LoadCheckPointInfo(const size_t epochNumber,
 
     fstream.GetMarker(FileMarker::fileMarkerBeginSection, L"BLearnRate");
     fstream >> totalSamplesSeen >> learnRatePerSample >> prevCriterion;
+    fstream >> m_lrapiInfo.adjustType >> m_lrapiInfo.iter >> m_lrapiInfo.maxIter >> m_lrapiInfo.base_ >> m_lrapiInfo.gamma >> m_lrapiInfo.power >> m_lrapiInfo.numItersToShowLR >> m_lrapiInfo.reachMinLearningRate;
     fstream.GetMarker(FileMarker::fileMarkerEndSection, L"ELearnRate");
 
     if (fstream.TryGetMarker(FileMarker::fileMarkerBeginSection, L"BMinibatchSize"))
