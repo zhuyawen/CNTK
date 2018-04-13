@@ -74,11 +74,11 @@ ImageReader::ImageReader(const ConfigParameters& config)
         transformations.push_back(Transformation{ std::make_shared<ColorTransformer>(featureStream), featureName });
         transformations.push_back(Transformation{ std::make_shared<IntensityTransformer>(featureStream), featureName });
         transformations.push_back(Transformation{ std::make_shared<MeanTransformer>(featureStream), featureName });
+    }
 
-        if (configHelper.GetDataFormat() == CHW)
-        {
-            transformations.push_back(Transformation{ std::make_shared<TransposeTransformer>(featureStream), featureName });
-        }
+    if (configHelper.GetDataFormat() == CHW)
+    {
+        transformations.push_back(Transformation{ std::make_shared<TransposeTransformer>(featureStream), featureName });
     }
 
     // We should always have cast at the end. 
