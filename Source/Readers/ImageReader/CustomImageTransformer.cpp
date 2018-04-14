@@ -160,87 +160,80 @@ namespace CNTK {
 
     CustomTransformer::CustomTransformer(const ConfigParameters& config) : ImageTransformerBase(config)
     {
-        m_do_mirror = true;
-        stringargvector do_mirror_value;
-        do_mirror_value = stringargvector(config(L"mirror", L"true"));
-        if (do_mirror_value[0] == L"false" || do_mirror_value[0] == L"False")
-            m_do_mirror = false;
+        m_do_mirror = config(L"mirror", true);
 
-        floatargvector arg[5];
+        double _scale = config(L"scale", "1.0");
+        double _scale_std = config(L"scale_std", "0.0");
+        double _scale_range = config(L"scale_range", "0.0");
+        m_scale.init(_scale, _scale_std, _scale_range, true);
 
-        arg[0] = floatargvector(config(L"scale", "1.0"));
-        arg[1] = floatargvector(config(L"scale_std", "0.0"));
-        arg[2] = floatargvector(config(L"scale_range", "0.0"));
-        m_scale.init(arg[0][0], arg[1][0], arg[2][0], true);
+        m_crop_size = config(L"crop_size", "0.0");
 
-        arg[0] = floatargvector(config(L"crop_size", "0.0"));
-        m_crop_size = arg[0][0];
+        int _width = config(L"width", 0);
+        double _crop_x_offset = config(L"crop_x_offset", "0.5");
+        double _crop_x = config(L"crop_x", "0.5");
+        double _crop_x_std = config(L"crop_x_std", "0.5");
+        double _crop_x_range = config(L"crop_x_range", "0.5");
+        m_w_crop.init(m_crop_size != 0.0 ? _width : m_crop_size, _crop_x_offset, _crop_x, _crop_x_std, _crop_x_range, true);
 
-        arg[0] = floatargvector(config(L"width", "0.0"));
-        arg[1] = floatargvector(config(L"crop_x_offset", "0.5"));
-        arg[2] = floatargvector(config(L"crop_x", "0.5"));
-        arg[3] = floatargvector(config(L"crop_x_std", "0.0"));
-        arg[4] = floatargvector(config(L"crop_x_range", "0.0"));
-        m_w_crop.init(arg[0][0] != 0 ? arg[0][0] : m_crop_size, arg[1][0], arg[2][0], arg[3][0], arg[4][0], true);
+        int _height = config(L"height", 0);
+        double _crop_y_offset = config(L"crop_y_offset", "0.5");
+        double _crop_y = config(L"crop_y", "0.5");
+        double _crop_y_std = config(L"crop_y_std", "0.5");
+        double _crop_y_range = config(L"crop_y_range", "0.5");
+        m_h_crop.init(m_crop_size != 0.0 ? _height : m_crop_size, _crop_y_offset, _crop_y, _crop_y_std, _crop_y_range, true);
 
-        arg[0] = floatargvector(config(L"height", "0.0"));
-        arg[1] = floatargvector(config(L"crop_y_offset", "0.5"));
-        arg[2] = floatargvector(config(L"crop_y", "0.5"));
-        arg[3] = floatargvector(config(L"crop_y_std", "0.0"));
-        arg[4] = floatargvector(config(L"crop_y_range", "0.0"));
-        m_h_crop.init(arg[0][0] != 0 ? arg[0][0] : m_crop_size, arg[1][0], arg[2][0], arg[3][0], arg[4][0], true);
+        double _resize = config(L"resize", "0.0");
+        double _resize_std = config(L"resize_std", "0.0");
+        double _resize_range = config(L"resize_range", "0.0");
+        m_new_size.init(_resize, _resize_std, _resize_range);
 
-        arg[0] = floatargvector(config(L"resize", "0.0"));
-        arg[1] = floatargvector(config(L"resize_std", "0.0"));
-        arg[2] = floatargvector(config(L"resize_range", "0.0"));
-        m_new_size.init(arg[0][0], arg[1][0], arg[2][0]);
+        double _resize_width = config(L"resize_width", "0.0");
+        double _resize_width_std = config(L"resize_width_std", "0.0");
+        double _resize_width_range = config(L"resize_width_range", "0.0");
+        m_new_width.init(_resize_width, _resize_width_std, _resize_width_range);
 
-        arg[0] = floatargvector(config(L"resize_width", "0.0"));
-        arg[1] = floatargvector(config(L"resize_width_std", "0.0"));
-        arg[2] = floatargvector(config(L"resize_width_range", "0.0"));
-        m_new_width.init(arg[0][0], arg[1][0], arg[2][0]);
+        double _resize_height = config(L"resize_height", "0.0");
+        double _resize_height_std = config(L"resize_height_std", "0.0");
+        double _resize_height_range = config(L"resize_height_range", "0.0");
+        m_new_height.init(_resize_height, _resize_height_std, _resize_height_range);
 
-        arg[0] = floatargvector(config(L"resize_height", "0.0"));
-        arg[1] = floatargvector(config(L"resize_height_std", "0.0"));
-        arg[2] = floatargvector(config(L"resize_height_range", "0.0"));
-        m_new_height.init(arg[0][0], arg[1][0], arg[2][0]);
+        double _aspect_ratio = config(L"aspect_ratio", "1.0");
+        double _aspect_ratio_std = config(L"aspect_ratio_std", "0.0");
+        double _aspect_ratio_range = config(L"aspect_ratio_range", "0.0");
+        m_aspect_ratio.init(_aspect_ratio, _aspect_ratio_std, _aspect_ratio_range, true);
 
-        arg[0] = floatargvector(config(L"aspect_ratio", "1.0"));
-        arg[1] = floatargvector(config(L"aspect_ratio_std", "0.0"));
-        arg[2] = floatargvector(config(L"aspect_ratio_range", "0.0"));
-        m_aspect_ratio.init(arg[0][0], arg[1][0], arg[2][0], true);
+        double _rotate_degree = config(L"rotate_degree", "0.0");
+        double _rotate_degree_std = config(L"rotate_degree_std", "0.0");
+        double _rotate_degree_range = config(L"rotate_degree_range", "0.0");
+        m_rotate.init(_rotate_degree, _rotate_degree_std, _rotate_degree_range, true);
 
-        arg[0] = floatargvector(config(L"rotate_degree", "0.0"));
-        arg[1] = floatargvector(config(L"rotate_degree_std", "0.0"));
-        arg[2] = floatargvector(config(L"rotate_degree_range", "0.0"));
-        m_rotate.init(arg[0][0], arg[1][0], arg[2][0], true);
+        double _brightness = config(L"brightness", "0.0");
+        double _brightness_std = config(L"brightness_std", "0.0");
+        double _brightness_range = config(L"brightness_range", "0.0");
+        m_brightness.init(_brightness, _brightness_std, _brightness_range, true);
 
-        arg[0] = floatargvector(config(L"brightness", "0.0"));
-        arg[1] = floatargvector(config(L"brightness_std", "0.0"));
-        arg[2] = floatargvector(config(L"brightness_range", "0.0"));
-        m_brightness.init(arg[0][0], arg[1][0], arg[2][0], true);
+        double _hue = config(L"hue", "0.0");
+        double _hue_std = config(L"hue_std", "0.0");
+        double _hue_range = config(L"hue_range", "0.0");
+        m_hue.init(_hue, _hue_std, _hue_range, true);
 
-        arg[0] = floatargvector(config(L"hue", "0.0"));
-        arg[1] = floatargvector(config(L"hue_std", "0.0"));
-        arg[2] = floatargvector(config(L"hue_range", "0.0"));
-        m_hue.init(arg[0][0], arg[1][0], arg[2][0], true);
+        double _saturation = config(L"saturation", "1.0");
+        double _saturation_std = config(L"saturation_std", "0.0");
+        double _saturation_range = config(L"saturation_range", "0.0");
+        m_saturation.init(_saturation, _saturation_std, _saturation_range, true);
 
-        arg[0] = floatargvector(config(L"saturation", "1.0"));
-        arg[1] = floatargvector(config(L"saturation_std", "0.0"));
-        arg[2] = floatargvector(config(L"saturation_range", "0.0"));
-        m_saturation.init(arg[0][0], arg[1][0], arg[2][0], true);
+        double _lightness = config(L"lightness", "1.0");
+        double _lightness_std = config(L"lightness_std", "0.0");
+        double _lightness_range = config(L"lightness_range", "0.0");
+        m_lightness.init(_lightness, _lightness_std, _lightness_range, true);
 
-        arg[0] = floatargvector(config(L"lightness", "1.0"));
-        arg[1] = floatargvector(config(L"lightness_std", "0.0"));
-        arg[2] = floatargvector(config(L"lightness_range", "0.0"));
-        m_lightness.init(arg[0][0], arg[1][0], arg[2][0], true);
-
-        arg[0] = floatargvector(config(L"B_mean", "128.0"));
-        m_mean_values.push_back(arg[0][0]);
-        arg[0] = floatargvector(config(L"G_mean", "128.0"));
-        m_mean_values.push_back(arg[0][0]);
-        arg[0] = floatargvector(config(L"R_mean", "128.0"));
-        m_mean_values.push_back(arg[0][0]);
+        double _bmean = config(L"B_mean", "128.0");
+        m_mean_values.push_back(_bmean);
+        double _gmean = config(L"G_mean", "128.0");
+        m_mean_values.push_back(_gmean);
+        double _rmean = config(L"R_mean", "128.0");
+        m_mean_values.push_back(_rmean);
     }
 
     void CustomTransformer::GetRandSize(int& img_width, int& img_height, std::mt19937 &rng) {
