@@ -11,7 +11,8 @@
 #include "Matrix.h"
 
 #include <string>
-
+#include<iostream>
+using namespace std;
 namespace Microsoft { namespace MSR { namespace CNTK {
 
 static const wchar_t* ConstantInitializerTypeName =         L"constant";
@@ -289,6 +290,8 @@ protected:
                 axisName = (const std::wstring&)*axisConfig;
             }
         }
+
+        wcout << "axisName = " << axisName << endl;
 
         bool isImage = configp->Get(L"isImage");
         if (!isImage)
