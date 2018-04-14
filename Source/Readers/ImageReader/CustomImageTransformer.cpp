@@ -161,16 +161,9 @@ namespace CNTK {
     CustomTransformer::CustomTransformer(const ConfigParameters& config) : ImageTransformerBase(config)
     {
         m_do_mirror = true;
-        stringargvector flag;
-        flag = stringargvector(config(L"mirror", L"true"));
-        auto lowcase = [](wstring str)
-        {
-            wstring _str = L"";
-            for (size_t i(0); i < str.length(); ++i)
-                _str[i] = (str[i] >= L'A' && str[i] <= L'Z') ? str[i] - L'A' + L'a' : str[i];
-            return _str;
-        };
-        if (lowcase(flag[0]) == L"false")
+        stringargvector do_mirror_value;
+        do_mirror_value = stringargvector(config(L"mirror", L"true"));
+        if (do_mirror_value[0] == L"false" || do_mirror_value[0] == L"False")
             m_do_mirror = false;
 
         floatargvector arg[5];
