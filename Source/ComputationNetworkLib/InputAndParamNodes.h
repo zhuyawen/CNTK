@@ -12,6 +12,7 @@
 
 #include <string>
 #include<iostream>
+#include "ProgressTracing.h"
 using namespace std;
 namespace Microsoft { namespace MSR { namespace CNTK {
 
@@ -291,6 +292,7 @@ protected:
             }
         }
 
+        LOGPRINTF(stderr, "axisName = %ls\n", axisName.c_str());
         wcout << "axisName = " << axisName << endl;
 
         bool isImage = configp->Get(L"isImage");
