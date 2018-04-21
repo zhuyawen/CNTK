@@ -571,10 +571,22 @@ void SGD<ElemType>::TrainOrAdaptModel(int startEpoch, ComputationNetworkPtr net,
 
         learnRateInitialized = true;
 
-        if (learnRatePerSample < m_minLearnRate || m_lrapiInfo.reachMinLearningRate)
+        if (learnRatePerSample < m_minLearnRate)
         {
             LOGPRINTF(stderr, "Learn Rate Per Sample for Epoch[%d] = %.8g is less than minLearningRatePerSample %.8g. Training complete.\n",
                       i + 1, learnRatePerSample, m_minLearnRate);
+            if (m_autoLearnRateSearchType != LearningRateSearchAlgorithm::None)
+            {
+                // In case of parallel training only the main node should we saving the model to prevent
+                // the parallel training nodes from colliding to write the same file
+                if ((m_mpi == nullptr) || m_mpi->IsMainNode())
+                    net->Save(m_modelPath);
+            }
+            break;
+        }
+        else if (m_lrapiInfo.reachMaxIter)
+        {
+            LOGPRINTF(stderr, "Reach max SGD iteration. Training complete.\n");
             if (m_autoLearnRateSearchType != LearningRateSearchAlgorithm::None)
             {
                 // In case of parallel training only the main node should we saving the model to prevent
@@ -1258,7 +1270,6 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 if (m_lrapiInfo.adjustType != AdjustType::None)
                 {
                     ++m_lrapiInfo.iter;
-                    m_lrapiInfo.iter = std::min(m_lrapiInfo.iter, m_lrapiInfo.maxIter);
                     if (AdjustType::Poly == m_lrapiInfo.adjustType)
                         learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(1 - 1.0 * m_lrapiInfo.iter / m_lrapiInfo.maxIter, m_lrapiInfo.power);
                     else if (AdjustType::Inv == m_lrapiInfo.adjustType)
@@ -1279,10 +1290,13 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 // house-keeping for sub-minibatching
                 if (actualNumSubminibatches > 1)
                     smbDispatcher.DoneWithCurrentSubMinibatch(ismb); // page state out
-            }                                                        // end sub-minibatch loop
 
-            if (learnRatePerSample < m_minLearnRate)
-                m_lrapiInfo.setReachMinLearningRate(true);
+                if (m_lrapiInfo.iter >= m_lrapiInfo.maxIter)
+                {
+                    m_lrapiInfo.setReachMaxIter(true);
+                    break;
+                }
+            }                                                        // end sub-minibatch loop
 
             if (actualNumSubminibatches > 1)
                 smbDispatcher.DoneWithCurrentMinibatch();
@@ -2520,7 +2534,7 @@ void SGD<ElemType>::SaveCheckPointInfo(const size_t epoch, const size_t totalSam
             fstream.PutMarker(FileMarker::fileMarkerBeginSection, L"BCKP");
             fstream.PutMarker(FileMarker::fileMarkerBeginSection, L"BLearnRate");
             fstream << totalSamplesSeen << learnRatePerSample << prevCriterion;
-            fstream << m_lrapiInfo.adjustType << m_lrapiInfo.iter << m_lrapiInfo.maxIter << m_lrapiInfo.base_ << m_lrapiInfo.gamma << m_lrapiInfo.power << m_lrapiInfo.numItersToShowLR << m_lrapiInfo.reachMinLearningRate;
+            fstream << m_lrapiInfo.adjustType << m_lrapiInfo.iter << m_lrapiInfo.maxIter << m_lrapiInfo.base_ << m_lrapiInfo.gamma << m_lrapiInfo.power << m_lrapiInfo.numItersToShowLR << m_lrapiInfo.reachMaxIter;
             fstream.PutMarker(FileMarker::fileMarkerEndSection, L"ELearnRate");
 
             fstream.PutMarker(FileMarker::fileMarkerBeginSection, L"BMinibatchSize");
@@ -2623,7 +2637,7 @@ void SGD<ElemType>::LoadCheckPointInfo(const size_t epochNumber,
 
     fstream.GetMarker(FileMarker::fileMarkerBeginSection, L"BLearnRate");
     fstream >> totalSamplesSeen >> learnRatePerSample >> prevCriterion;
-    fstream >> m_lrapiInfo.adjustType >> m_lrapiInfo.iter >> m_lrapiInfo.maxIter >> m_lrapiInfo.base_ >> m_lrapiInfo.gamma >> m_lrapiInfo.power >> m_lrapiInfo.numItersToShowLR >> m_lrapiInfo.reachMinLearningRate;
+    fstream >> m_lrapiInfo.adjustType >> m_lrapiInfo.iter >> m_lrapiInfo.maxIter >> m_lrapiInfo.base_ >> m_lrapiInfo.gamma >> m_lrapiInfo.power >> m_lrapiInfo.numItersToShowLR >> m_lrapiInfo.reachMaxIter;
     fstream.GetMarker(FileMarker::fileMarkerEndSection, L"ELearnRate");
 
     if (fstream.TryGetMarker(FileMarker::fileMarkerBeginSection, L"BMinibatchSize"))

@@ -121,7 +121,7 @@ struct LRAPIInfo
     double gamma;
     double power;
     size_t numItersToShowLR;
-    bool reachMinLearningRate = false;
+    bool reachMaxIter = false;
 
     LRAPIInfo() {}
     void setAdjustType(AdjustType _adjustType) { adjustType = _adjustType; }
@@ -132,7 +132,7 @@ struct LRAPIInfo
     void setGamma(double _gamma) { gamma = _gamma; }
     void setPower(double _power) { power = _power; }
     void setNumItersToShowLR(size_t _numItersToShowLR) { numItersToShowLR = _numItersToShowLR; }
-    void setReachMinLearningRate(bool _reachMinLearningRate) { reachMinLearningRate = _reachMinLearningRate; }
+    void setReachMaxIter(bool _reachMaxIter) { reachMaxIter = _reachMaxIter; }
 };
 
 struct BestEpoch
