@@ -121,6 +121,7 @@ struct LRAPIInfo
     double gamma;
     double power;
     size_t numItersToShowLR;
+    size_t numItersToSaveModel;
     bool reachMaxIter = false;
 
     LRAPIInfo() {}
@@ -132,6 +133,7 @@ struct LRAPIInfo
     void setGamma(double _gamma) { gamma = _gamma; }
     void setPower(double _power) { power = _power; }
     void setNumItersToShowLR(size_t _numItersToShowLR) { numItersToShowLR = _numItersToShowLR; }
+    void setNumItersToSaveModel(size_t _numItersToSaveModel) { numItersToSaveModel = _numItersToSaveModel; }
     void setReachMaxIter(bool _reachMaxIter) { reachMaxIter = _reachMaxIter; }
 };
 

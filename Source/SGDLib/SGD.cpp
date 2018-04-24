@@ -1667,6 +1667,10 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
 
         ProfilerTimeEnd(profPost, profilerEvtMainPost);
         ProfilerTimeEnd(profMinibatch, profilerEvtMainMinibatch);
+
+
+        if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToSaveModel)
+            net->Save(m_modelPath + L"-Iter" + to_wstring(m_lrapiInfo.iter));
     }
 
     // --- END MAIN MINIBATCH LOOP
@@ -2974,9 +2978,12 @@ SGDParams::SGDParams(const ConfigRecordType& configSGD, size_t sizeofElemType)
     m_lrapiInfo.base_ = configAALR(L"base", 0.0);
     m_lrapiInfo.gamma = configAALR(L"gamma", 0.0);
     m_lrapiInfo.power = configAALR(L"power", 1.0);
-    m_lrapiInfo.numItersToShowLR = configAALR(L"numItersToShowLR", (size_t) 1);
+    m_lrapiInfo.numItersToShowLR = configAALR(L"numItersToShowLR", ((size_t)1) << ((size_t)60));
     if (m_lrapiInfo.numItersToShowLR < 1)
         LogicError("numItersToShowLR must be greater than 0.");
+    m_lrapiInfo.numItersToSaveModel = configAALR(L"numItersToSaveModel", ((size_t)1) << ((size_t)60));
+    if (m_lrapiInfo.numItersToSaveModel < 1)
+        LogicError("numItersToSaveModel must be greater than 0.");
 #pragma endregion
 
     // TODO: mbSize and truncated should be specified differently for truncated BPTT:
