@@ -587,7 +587,6 @@ public:
 
     virtual void UpdateFunctionMBSize() override
     {
-        m_inputDimension = InputRef(0).Value().GetNumRows();
         m_minibatchSize = InputRef(0).Value().GetNumCols();
 
         m_label->Resize(1, m_minibatchSize);
@@ -659,7 +658,6 @@ public:
         if (flags & CopyNodeFlags::copyNodeValue)
         {
             auto node = dynamic_pointer_cast<AdditiveFullConnectionNode<ElemType>>(nodeP);
-            node->m_inputDimension = m_inputDimension;
             node->m_outputDimension = m_outputDimension;
             node->m_minibatchSize = m_minibatchSize;
             node->m_weightNormalize = m_weightNormalize;
@@ -729,7 +727,6 @@ public:
     }
 
 private:
-    size_t m_inputDimension; // n
     size_t m_outputDimension; // k
     size_t m_minibatchSize; // m
     bool m_weightNormalize;
