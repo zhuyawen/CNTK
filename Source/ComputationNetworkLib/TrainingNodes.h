@@ -3374,6 +3374,13 @@ public:
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
     {
+        if (m_imageLayoutKind == ImageLayoutKind::HWC)
+            puts("Layout : HWC");
+        else if (m_imageLayoutKind == ImageLayoutKind::CHW)
+            puts("Layout : CHW");
+        else
+            puts("Unkowned layout");
+
         if (m_convertRunningVariancePending)
             LogicError("%ls: Failed to convert running variance until forward prop", NodeName().c_str());
         FrameRange fr(Input(DATA)->GetMBLayout());
@@ -3778,5 +3785,239 @@ private:
 
     bool m_convertRunningVariancePending;
 };
+
+
+#pragma region GlobalMemoryBlock
+/*
+    GlobalMemoryBlock
+    Layout : Matrix<ElemType>(memoryLength, miniBatchSize)
+    Memory : GlobalMemoryBlock will be allocated/released by the first trainingNodes (Segment 1).
+                     miniBatchSize
+              ---------------------------
+              |        Segment 1        |       Value/Gradient matrix 1
+              ---------------------------
+              |        Segment 2        |       Value/Gradient matrix 2
+              ---------------------------
+              |           .             |
+ memoryLength |           .             |
+              |           .             |
+              ---------------------------
+              |        Segment n-1      |       Value/Gradient matrix n - 1
+              ---------------------------
+              |        Segment n        |       Value/Gradient matrix n
+              ---------------------------
+*/
+template <class ElemType>
+class GlobalMemoryBlock
+{
+public:
+    GlobalMemoryBlock(){}
+
+    GlobalMemoryBlock(size_t _memoryLength, size_t _miniBatchSize)
+        : memoryLength(_memoryLength), miniBatchSize(_miniBatchSize), index(0)
+    {
+    }
+
+    void requestGlobalMemory(ComputationNode<ElemType>* node, MatrixPool& matrixPool)
+    {
+        node->RequestMatrixFromPool(globalMemoryMatrix, matrixPool);
+        globalMemoryMatrix->Resize(memoryLength, miniBatchSize);
+    }
+
+    void releaseGlobalMemory(ComputationNode<ElemType>* node, MatrixPool& matrixPool)
+    {
+        node->ReleaseMatrixToPool(globalMemoryMatrix, matrixPool);
+    }
+
+    void addSegmentMatrix(const Matrix<ElemType>& segmentMatrix, size_t numRows)
+    {
+        if(segmentMatrix.GetNumCols() != miniBatchSize)
+            LogicError("Segment batch size not matches global batch size in addSegmentMatrix.");
+
+        if (numRows >= 0 && index + numRows <= memoryLength)
+            globalMemoryMatrix->AssignRowSliceValuesOf(segmentMatrix, index, numRows);
+        else
+            LogicError("Segment range error in addSegmentMatrix.");
+
+        index += numRows;
+    }
+
+    void getSegmentMatrix(size_t startIndex, size_t numRows, Matrix<ElemType>& segmentMatrix)
+    {
+        if (segmentMatrix.GetNumCols() != miniBatchSize)
+            LogicError("Segment batch size not matches global batch size in getSegmentMatrix.");
+
+        if (start >= 0 && numRows >= 0 && startIndex + numRows <= memoryLength)
+            segmentMatrix.AssignRowSliceValuesOf(*globalMemoryMatrix, startIndex, numRows);
+        else
+            LogicError("Segment range error in getSegmentMatrix.");
+    }
+
+    size_t getIndex()
+    {
+        return index;
+    }
+
+private:
+    size_t memoryLength; // row
+    size_t miniBatchSize; // col
+    size_t index;
+    shared_ptr<Matrix<ElemType>>globalMemoryMatrix;
+};
+
+template <class ElemType>
+map<wstring, GlobalMemoryBlock<ElemType>>valueGlobalMemoryBlockMap;
+template <class ElemType>
+map<wstring, GlobalMemoryBlock<ElemType>>gradientGlobalMemoryBlockMap;
+#pragma endregion
+
+
+#pragma region Training Nodes Share Global Memory
+
+template <class ElemType>
+class GlobalConcatNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<1>
+{
+
+public:
+    typedef ComputationNodeNonLooping<ElemType> Base; UsingComputationNodeMembersBoilerplate;
+    static const std::wstring TypeName() { return L"GlobalConcat"; }
+
+public:
+    GlobalConcatNode(const ScriptableObjects::IConfigRecordPtr configp) :
+        GlobalConcatNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"memoryBlockName"), configp->Get(L"memoryLength"))
+    {
+        AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
+    }
+
+    GlobalConcatNode(DEVICEID_TYPE deviceId, const wstring& name, wstring memoryBlockName = L"", size_t memoryLength = 0)
+        : Base(deviceId, name), m_memoryBlockName(memoryBlockName), m_memoryLength(memoryLength)
+    {
+        m_valueMemoryFlag = false;
+        m_gradientMemoryFlag = false;
+    }
+
+    virtual void UpdateFunctionMBSize() override
+    {
+        m_minibatchSize = InputRef(0).Value().GetNumCols();
+    }
+
+    virtual void BackpropToNonLooping(size_t inputIndex) override
+    {
+        map<wstring, GlobalMemoryBlock<ElemType>>::iteration it = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
+        if (it == gradientGlobalMemoryBlockMap.end())
+            LogicError("Global memory block not found.");
+        GlobalMemoryBlock gradientGlobalMemoryBlock = it->second;
+
+        gradientGlobalMemoryBlock.getSegmentMatrix(Gradient(), m_startIndex, m_rowNum);
+    }
+
+    virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
+    {
+        map<wstring, GlobalMemoryBlock<ElemType>>::iteration it = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
+        if(it == valueGlobalMemoryBlockMap.end())
+            LogicError("Global memory block not found.");
+        GlobalMemoryBlock valueGlobalMemoryBlock = it->second;
+
+        FrameRange fr(InputRef(0).GetMBLayout());
+        auto X = InputRef(0).ValueFor(fr);
+        m_startIndex = valueGlobalMemoryBlock.top();
+        m_rowNum = X.GetNumRows();
+        valueGlobalMemoryBlock.addSegmentMatrix(X, m_rowNum);
+    }
+
+    virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return false; }
+
+    virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
+    {
+        ValidateUnaryMap(isFinalValidationPass);
+    }
+
+    virtual void CopyTo(ComputationNodeBasePtr nodeP, const std::wstring& newName, const CopyNodeFlags flags) const override
+    {
+        Base::CopyTo(nodeP, newName, flags);
+        if (flags & CopyNodeFlags::copyNodeValue)
+        {
+            auto node = dynamic_pointer_cast<GlobalConcatNode<ElemType>>(nodeP);
+        }
+    }
+
+    // request matrices needed to do node function value evaluation
+    virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
+    {
+        Base::RequestMatricesBeforeForwardProp(matrixPool);
+
+        if (valueGlobalMemoryBlock.find(m_memoryBlockName) == valueGlobalMemoryBlock.end())
+        {
+            m_valueMemoryFlag = true;
+            GlobalMemoryBlock globalMemoryBlock = GlobalMemoryBlock(m_memoryLength, m_minibatchSize);
+            globalMemoryBlock.requestGlobalMemory(this, matrixPool);
+            valueGlobalMemoryBlockMap[m_memoryBlockName] = globalMemoryBlock;
+        }
+    }
+
+    // request matrices needed to do node function value evaluation
+    virtual void RequestMatricesBeforeBackprop(MatrixPool& matrixPool)
+    {
+        Base::RequestMatricesBeforeForwardProp(matrixPool);
+
+        if (gradientGlobalMemoryBlock.find(m_memoryBlockName) == gradientGlobalMemoryBlock.end())
+        {
+            m_gradientMemoryFlag = true;
+            GlobalMemoryBlock globalMemoryBlock = GlobalMemoryBlock(m_memoryLength, m_minibatchSize);
+            globalMemoryBlock.requestGlobalMemory(this, matrixPool);
+            gradientGlobalMemoryBlockMap[m_memoryBlockName] = globalMemoryBlock;
+        }
+    }
+
+    // release gradient and temp matrices that no longer needed after all the children's gradients are computed.
+    virtual void ReleaseMatricesAfterForwardProp(MatrixPool& matrixPool)
+    {
+        Base::ReleaseMatricesAfterForwardProp(matrixPool);
+
+        if (m_valueMemoryFlag)
+        {
+            valueGlobalMemoryBlockMap[m_memoryBlockName].releaseGlobalMemory(this, matrixPool);
+            valueGlobalMemoryBlockMap.erase(valueGlobalMemoryBlockMap.find(m_memoryBlockName));
+            m_valueMemoryFlag = false;
+        }
+    }
+
+    // release gradient and temp matrices that no longer needed after all the children's gradients are computed.
+    virtual void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool)
+    {
+        Base::ReleaseMatricesAfterBackprop(matrixPool);
+
+        if (m_gradientMemoryFlag)
+        {
+            gradientGlobalMemoryBlockMap[m_memoryBlockName].releaseGlobalMemory(this, matrixPool);
+            gradientGlobalMemoryBlockMap.erase(gradientGlobalMemoryBlockMap.find(m_memoryBlockName));
+            m_gradientMemoryFlag = false;
+        }
+    }
+
+    void Save(File& fstream) const override
+    {
+        Base::Save(fstream);
+        fstream << m_memoryBlockName << m_memoryLength << m_minibatchSize << m_startIndex << m_numRows << m_valueMemoryFlag << m_gradientMemoryFlag;
+    }
+
+    void Load(File& fstream, size_t modelVersion) override
+    {
+        Base::Load(fstream, modelVersion);
+        fstream >> m_memoryBlockName >> m_memoryLength >> m_minibatchSize >> m_startIndex >> m_numRows >> m_valueMemoryFlag >> m_gradientMemoryFlag;
+    }
+
+private:
+    wstring m_memoryBlockName;
+    size_t m_memoryLength;
+    size_t m_minibatchSize;
+    size_t m_startIndex;
+    size_t m_numRows;
+    bool m_valueMemoryFlag;
+    bool m_gradientMemoryFlag;
+};
+#pragma endregion
+
 
 }}}
