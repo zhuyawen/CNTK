@@ -3492,6 +3492,13 @@ public:
         // No derivatives with respect to running mean and variance.
     }
 
+    virtual bool InputUsedInComputingInputNodesGradients(size_t childIndex) const override
+    {
+        if (childIndex == DATA)
+            return false;
+        return true;
+    }
+
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
 
     virtual ParentGradientOptimization ImplementsGradientOptimization(const ComputationNodeBase* input) const
@@ -3819,15 +3826,15 @@ public:
     {
     }
 
-    void addSegmentMatrix(const Matrix<ElemType>& segmentMatrix, size_t numRows)
+    void stackSegmentMatrix(const Matrix<ElemType>& segmentMatrix, size_t numRows)
     {
         if (segmentMatrix.GetNumCols() != miniBatchSize)
-            LogicError("Segment batch size not matches global batch size in addSegmentMatrix.");
+            LogicError("Segment batch size not matches global batch size in stackSegmentMatrix.");
 
         if (numRows >= 0 && index + numRows <= memoryLength)
             globalMemoryMatrix->AssignRowSliceValuesOf(segmentMatrix, index, numRows);
         else
-            LogicError("Segment range error in addSegmentMatrix.");
+            LogicError("Segment range error in stackSegmentMatrix.");
 
         index += numRows;
     }
@@ -3841,6 +3848,11 @@ public:
             segmentMatrix.AssignRowSliceValuesOf(*globalMemoryMatrix, startIndex, numRows);
         else
             LogicError("Segment range error in getSegmentMatrix.");
+    }
+
+    void updateSegmentMatrix(Matrix<ElemType>& segmentMatrix, size_t numRows)
+    {
+        globalMemoryMatrix->AddToRowSliceValuesOf(segmentMatrix, 0, numRows);
     }
 
     size_t getIndex()
@@ -3897,7 +3909,10 @@ public:
             LogicError("Global memory block not found.");
         GlobalMemoryBlock<ElemType> gradientGlobalMemoryBlock = it->second;
 
-        gradientGlobalMemoryBlock.getSegmentMatrix(Gradient(), m_startIndex, m_numRows);
+        FrameRange fr(InputRef(0).GetMBLayout());
+        auto X_gradient = InputRef(0).GradientFor(fr);
+        gradientGlobalMemoryBlock.updateSegmentMatrix(Gradient(), m_startIndex + m_numRows);
+        gradientGlobalMemoryBlock.getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
     }
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
@@ -3911,7 +3926,8 @@ public:
         auto X = InputRef(0).ValueFor(fr);
         m_startIndex = valueGlobalMemoryBlock.getIndex();
         m_numRows = X.GetNumRows();
-        valueGlobalMemoryBlock.addSegmentMatrix(X, m_numRows);
+        valueGlobalMemoryBlock.stackSegmentMatrix(X, m_numRows);
+        valueGlobalMemoryBlock.getSegmentMatrix(Value(), 0, valueGlobalMemoryBlock.getIndex());
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
@@ -3919,7 +3935,14 @@ public:
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
-        ValidateUnaryMap(isFinalValidationPass);
+        Base::Validate(isFinalValidationPass);
+
+        InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
+        auto dims = Input(0)->GetSampleLayout().GetDims();
+        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName);
+        if (it != valueGlobalMemoryBlockMap<ElemType>.end())
+            dims[2] += it->getIndex();
+        SetDims(TensorShape(dims), HasMBLayout());
     }
 
     virtual void CopyTo(ComputationNodeBasePtr nodeP, const std::wstring& newName, const CopyNodeFlags flags) const override
