@@ -6,6 +6,7 @@
 #include "TrainingNodes.h"
 #include <boost/random/uniform_real_distribution.hpp>
 #include <map>
+using namespace std;
 
 namespace Microsoft { namespace MSR { namespace CNTK {
 
@@ -347,8 +348,8 @@ template class MarginInnerProductNode<double>;
 template class AdditiveFullConnectionNode<float>;
 template class AdditiveFullConnectionNode<double>;
 
-template map<wstring, GlobalMemoryBlock<float>>;
-template map<wstring, GlobalMemoryBlock<double>>;
+template std::map<wstring, GlobalMemoryBlock<float>>;
+template std::map<wstring, GlobalMemoryBlock<double>>;
 
 template class GlobalConcatNode<float>;
 template class GlobalConcatNode<double>;
