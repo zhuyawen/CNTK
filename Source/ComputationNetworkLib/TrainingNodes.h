@@ -3803,7 +3803,7 @@ private:
     GlobalMemoryBlock
     Layout : Matrix<ElemType>(memoryLength, miniBatchSize)
     Memory : GlobalMemoryBlock will be allocated/released by the first trainingNodes (Segment 1).
-                       miniBatchSize
+                        miniBatchSize
                  ---------------------------
                  |        Segment 1        |       Value/Gradient matrix 1
                  ---------------------------
@@ -3824,8 +3824,8 @@ class GlobalMemoryBlock
 public:
     GlobalMemoryBlock() {}
 
-    GlobalMemoryBlock(size_t _memoryLength, size_t _miniBatchSize)
-        : memoryLength(_memoryLength), miniBatchSize(_miniBatchSize), index(0)
+    GlobalMemoryBlock(size_t _memoryLength, size_t _miniBatchSize, shared_ptr<Matrix<ElemType>> _globalMemoryMatrix)
+        : memoryLength(_memoryLength), miniBatchSize(_miniBatchSize), globalMemoryMatrix(_globalMemoryMatrix), index(0)
     {
     }
 
@@ -3908,7 +3908,7 @@ public:
     {
         map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
         if (it == gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
-            LogicError("Global memory block not found.");
+            LogicError("Global memory block not found in BackpropToNonLooping.");
         GlobalMemoryBlock<ElemType> gradientGlobalMemoryBlock = it->second;
 
         FrameRange fr(InputRef(0).GetMBLayout());
@@ -3924,7 +3924,7 @@ public:
     {
         map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
         if (it == valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
-            LogicError("Global memory block not found.");
+            LogicError("Global memory block not found in ForwardPropNonLooping.");
         GlobalMemoryBlock<ElemType> valueGlobalMemoryBlock = it->second;
 
         FrameRange fr(InputRef(0).GetMBLayout());
@@ -3974,9 +3974,17 @@ public:
         if (valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName) == valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
         {
             m_valueMemoryFlag = true;
-            GlobalMemoryBlock<ElemType> globalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, m_minibatchSize);
-            RequestMatrixFromPool(globalMemoryBlock.globalMemoryMatrix, matrixPool);
+            RequestMatrixFromPool(m_valueGlobalMemoryMatrix, matrixPool);
+            GlobalMemoryBlock<ElemType> globalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, m_minibatchSize, m_valueGlobalMemoryMatrix);
             valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = globalMemoryBlock;
+        }
+
+        if (gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName) == gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
+        {
+            m_gradientMemoryFlag = true;
+            RequestMatrixFromPool(m_gradientGlobalMemoryMatrix, matrixPool);
+            GlobalMemoryBlock<ElemType> globalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, m_minibatchSize, m_gradientGlobalMemoryMatrix);
+            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = globalMemoryBlock;
         }
     }
 
@@ -3984,27 +3992,12 @@ public:
     virtual void RequestMatricesBeforeBackprop(MatrixPool& matrixPool)
     {
         Base::RequestMatricesBeforeForwardProp(matrixPool);
-
-        if (gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName) == gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
-        {
-            m_gradientMemoryFlag = true;
-            GlobalMemoryBlock<ElemType> globalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, m_minibatchSize);
-            RequestMatrixFromPool(globalMemoryBlock.globalMemoryMatrix, matrixPool);
-            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = globalMemoryBlock;
-        }
     }
 
     // release gradient and temp matrices that no longer needed after all the children's gradients are computed.
     virtual void ReleaseMatricesAfterForwardProp(MatrixPool& matrixPool)
     {
         Base::ReleaseMatricesAfterForwardProp(matrixPool);
-
-        if (m_valueMemoryFlag)
-        {
-            ReleaseMatrixToPool(valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName].globalMemoryMatrix, matrixPool);
-            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
-            m_valueMemoryFlag = false;
-        }
     }
 
     // release gradient and temp matrices that no longer needed after all the children's gradients are computed.
@@ -4012,9 +4005,16 @@ public:
     {
         Base::ReleaseMatricesAfterBackprop(matrixPool);
 
+        if (m_valueMemoryFlag)
+        {
+            ReleaseMatrixToPool(m_valueGlobalMemoryMatrix, matrixPool);
+            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
+            m_valueMemoryFlag = false;
+        }
+
         if (m_gradientMemoryFlag)
         {
-            ReleaseMatrixToPool(gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName].globalMemoryMatrix, matrixPool);
+            ReleaseMatrixToPool(m_gradientGlobalMemoryMatrix, matrixPool);
             gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
             m_gradientMemoryFlag = false;
         }
@@ -4040,6 +4040,9 @@ private:
     size_t m_numRows;
     bool m_valueMemoryFlag;
     bool m_gradientMemoryFlag;
+
+    shared_ptr<Matrix<ElemType>> m_valueGlobalMemoryMatrix;
+    shared_ptr<Matrix<ElemType>> m_gradientGlobalMemoryMatrix;
 };
 #pragma endregion
 

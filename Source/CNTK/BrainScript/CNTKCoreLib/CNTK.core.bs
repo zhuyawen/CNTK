@@ -513,7 +513,7 @@ CNTK2 = [
     #
     # GlobalConcat node
     #
-    GlobalConcat(memoryBlockName, memoryLength, tag='') = 
+    GlobalConcat(feature, memoryBlockName, memoryLength, tag='') = 
         new ComputationNode [ operation = 'GlobalConcat' ; inputs = _AsNodes (feature) /*plus the function args*/ ]
 
 
