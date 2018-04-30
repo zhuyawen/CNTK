@@ -3875,7 +3875,7 @@ std::map<wstring, ElemType>valueGlobalMemoryBlockMap;
 template <class ElemType>
 std::map<wstring, ElemType>gradientGlobalMemoryBlockMap;
 
-std::map<wstring, size_t>validateCounter;
+static std::map<wstring, size_t>validateCounter = std::map<wstring, size_t>();
 #pragma endregion
 
 

@@ -1833,7 +1833,7 @@ namespace CNTK
         return AsComposite(MakeSharedObject<PrimitiveFunction>(PrimitiveOpType::AdditiveFullConnection, operands, std::move(additionalProperties), name), name);
     }
 
-    FunctionPtr GlobalConcat(const Variable& features, const std::wstring memoryBlockName, size_t memoryLength, size_t segmentIndex, const std::wstring& name)
+    FunctionPtr GlobalConcat(const Variable& features, std::wstring memoryBlockName, size_t memoryLength, size_t segmentIndex, const std::wstring& name)
     {
         std::vector<Variable> operands = { features };
         auto additionalProperties = Dictionary();
