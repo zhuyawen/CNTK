@@ -1281,7 +1281,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                     else if (AdjustType::Step == m_lrapiInfo.adjustType)
                         learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, floor(1.0 * m_lrapiInfo.iter / m_lrapiInfo.step));
 
-                    if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
+                    if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR && m_lrapiInfo.iter != 0)
                         fprintf(stderr, "Iteration %d: learning rate per sample = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);
                 }
 
@@ -2969,7 +2969,7 @@ SGDParams::SGDParams(const ConfigRecordType& configSGD, size_t sizeofElemType)
         LogicError("Invalid learning rate adjust type.");
 
     m_lrapiInfo.iter = configAALR(L"iter", (size_t) 0);
-    m_lrapiInfo.maxIter = configAALR(L"maxIter", (size_t) 0);
+    m_lrapiInfo.maxIter = configAALR(L"maxIter", ((size_t)1) << ((size_t)60));
     m_lrapiInfo.step = configAALR(L"step", (size_t) 0);
     if (AdjustType::Poly == m_lrapiInfo.adjustType && m_lrapiInfo.maxIter < 1)
         LogicError("maxIteration must be greater than 0.");
