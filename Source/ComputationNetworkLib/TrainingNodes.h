@@ -3492,12 +3492,12 @@ public:
         // No derivatives with respect to running mean and variance.
     }
 
-    virtual bool InputUsedInComputingInputNodesGradients(size_t childIndex) const override
-    {
-        if (childIndex == DATA)
-            return false;
-        return true;
-    }
+    //virtual bool InputUsedInComputingInputNodesGradients(size_t childIndex) const override
+    //{
+        //if (childIndex == DATA)
+            //return false;
+        //return true;
+    //}
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
 
@@ -3874,7 +3874,6 @@ std::map<wstring, GlobalMemoryBlock<ElemType>>gradientGlobalMemoryBlockMap;
 
 
 #pragma region Training Nodes Share Global Memory
-
 template <class ElemType>
 class GlobalConcatNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<1>
 {
@@ -3911,7 +3910,10 @@ public:
 
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X_gradient = InputRef(0).GradientFor(fr);
-        gradientGlobalMemoryBlock.updateSegmentMatrix(Gradient(), m_startIndex + m_numRows);
+        size_t numRows = Gradient().GetNumRows();
+        if (m_startIndex + m_numRows != numRows)
+            LogicError("Unmatched numRows in BackpropToNonLooping.");
+        gradientGlobalMemoryBlock.updateSegmentMatrix(Gradient(), numRows);
         gradientGlobalMemoryBlock.getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
     }
 
@@ -3931,7 +3933,7 @@ public:
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
-    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return false; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return true; }
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
@@ -3941,7 +3943,7 @@ public:
         auto dims = Input(0)->GetSampleLayout().GetDims();
         map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName);
         if (it != valueGlobalMemoryBlockMap<ElemType>.end())
-            dims[2] += it->getIndex();
+            dims[2] += it->second.getIndex();
         SetDims(TensorShape(dims), HasMBLayout());
     }
 
@@ -3951,6 +3953,13 @@ public:
         if (flags & CopyNodeFlags::copyNodeValue)
         {
             auto node = dynamic_pointer_cast<GlobalConcatNode<ElemType>>(nodeP);
+            node->m_memoryBlockName = m_memoryBlockName;
+            node->m_memoryLength = m_memoryLength;
+            node->m_minibatchSize = m_minibatchSize;
+            node->m_startIndex = m_startIndex;
+            node->m_numRows = m_numRows;
+            node->m_valueMemoryFlag = m_valueMemoryFlag;
+            node->m_gradientMemoryFlag = m_gradientMemoryFlag;
         }
     }
 
