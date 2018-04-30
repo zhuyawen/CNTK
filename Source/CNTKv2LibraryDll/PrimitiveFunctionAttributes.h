@@ -115,4 +115,6 @@ namespace CNTK
     /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasPower = L"biasPower";
     /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasMin = L"biasMin";
     /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullConnectionBiasMax = L"biasMax";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryBlockName = L"memoryBlockName";
+    /*static*/ const std::wstring PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryLength = L"memoryLength";
 }

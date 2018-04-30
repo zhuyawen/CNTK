@@ -99,6 +99,7 @@ namespace CNTK
         MarginInnerProduct = 87,
         FeatureNormalize = 88,
         AdditiveFullConnection = 89,
+        GlobalConcat = 90,
         // New op types should only be appended to the end of this list 
         UnknownOP
         // and UnknownOP should always be last.

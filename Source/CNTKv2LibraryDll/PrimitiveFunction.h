@@ -115,6 +115,7 @@ namespace CNTK
         {PrimitiveOpType::MarginInnerProduct, L"MarginInnerProduct"},
         {PrimitiveOpType::FeatureNormalize, L"FeatureNormalize"},
         {PrimitiveOpType::AdditiveFullConnection, L"AdditiveFullConnection"},
+        {PrimitiveOpType::GlobalConcat, L"GlobalConcat"}
     };
 
     inline const std::wstring& PrimitiveOpTypeName(PrimitiveOpType opType)
@@ -310,6 +311,8 @@ namespace CNTK
         static const std::wstring AttributeAdditiveFullConnectionBiasPower;
         static const std::wstring AttributeAdditiveFullConnectionBiasMin;
         static const std::wstring AttributeAdditiveFullConnectionBiasMax;
+        static const std::wstring AttributeAdditiveFullGlobalConcatMemoryBlockName;
+        static const std::wstring AttributeAdditiveFullGlobalConcatMemoryLength;
 
     protected:
         PrimitiveFunction(PrimitiveOpType op, const std::vector<Variable>& inputs, Dictionary&& functionConfig, const std::wstring& functionName, const std::wstring& uid)

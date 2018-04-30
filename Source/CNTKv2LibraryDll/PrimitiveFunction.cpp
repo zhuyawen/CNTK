@@ -112,6 +112,7 @@ namespace CNTK
             (op == PrimitiveOpType::MarginInnerProduct) ||
             (op == PrimitiveOpType::FeatureNormalize) ||
             (op == PrimitiveOpType::AdditiveFullConnection) ||
+            (op == PrimitiveOpType::GlobalConcat) ||
             (op == PrimitiveOpType::CrossEntropyWithSoftmax) ||
             (op == PrimitiveOpType::EditDistanceError) ||
             (op == PrimitiveOpType::ClassificationError) ||
@@ -813,6 +814,12 @@ namespace CNTK
                         case PrimitiveOpType::AdditiveFullConnection:
                         {
                             assert(m_inputs.size() == 3);
+                            outputShape = NDShape{};
+                            break;
+                        }
+                        case PrimitiveOpType::GlobalConcat:
+                        {
+                            assert(m_inputs.size() == 1);
                             outputShape = NDShape{};
                             break;
                         }

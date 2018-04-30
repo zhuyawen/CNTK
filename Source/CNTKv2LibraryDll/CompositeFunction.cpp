@@ -1003,6 +1003,13 @@ namespace CNTK
                     computationNodePtr = New<AdditiveFullConnectionNode<ElementType>>(network->GetDeviceId(), internalNodeName, outputDimension, weightNormalize, bias, annealBias, biasBase, biasGamma, biasPower, biasMin, biasMax);
                     break;
                 }
+                case PrimitiveOpType::GlobalConcat:
+                {
+                    auto memoryBlockName = functionConfig[PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryBlockName].Value<std::wstring>();
+                    auto memoryLength = functionConfig[PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryLength].Value<size_t>();
+                    computationNodePtr = New<GlobalConcatNode<ElementType>>(network->GetDeviceId(), internalNodeName, memoryBlockName, memoryLength);
+                    break;
+                }
                 case PrimitiveOpType::CrossEntropyWithSoftmax:
                     computationNodePtr = New<CrossEntropyWithSoftmaxNode<ElementType>>(network->GetDeviceId(), internalNodeName);
                     break;
