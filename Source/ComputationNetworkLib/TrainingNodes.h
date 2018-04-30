@@ -100,9 +100,9 @@ public:
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
-        FrameRange fr(InputRef(0).GetMBLayout());
-        auto& weight = InputRef(2).Value();
+        FrameRange fr(InputRef(1).GetMBLayout());
         auto X = InputRef(1).ValueFor(fr);
+        auto& weight = InputRef(2).Value();
 
         if (1 == inputIndex)
         {
@@ -254,7 +254,12 @@ public:
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
-    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return true; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t childIndex) const override
+    {
+        if (0 == childIndex)
+            return false;
+        return true;
+    }
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
@@ -599,14 +604,14 @@ public:
     {
         if (1 == inputIndex)
         {
-            FrameRange fr(InputRef(0).GetMBLayout());
-            auto& weight = InputRef(2).Value();
+            FrameRange fr(InputRef(1).GetMBLayout());
             auto X_gradient = InputRef(1).GradientFor(fr);
+            auto& weight = InputRef(2).Value();
             Matrix<ElemType>::Multiply(weight, true, Gradient(), false, X_gradient);
         }
         else if (2 == inputIndex)
         {
-            FrameRange fr(InputRef(0).GetMBLayout());
+            FrameRange fr(InputRef(1).GetMBLayout());
             auto X = InputRef(1).ValueFor(fr);
             auto& weightGradient = InputRef(2).Gradient();
             Matrix<ElemType>::Multiply(Gradient(), false, X, true, weightGradient);
@@ -643,7 +648,12 @@ public:
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
-    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return true; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t childIndex) const override
+    {
+        if (0 == childIndex)
+            return false;
+        return true;
+    }
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
@@ -3933,7 +3943,7 @@ public:
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
-    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return true; }
+    virtual bool InputUsedInComputingInputNodesGradients(size_t /*childIndex*/) const override { return false; }
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
