@@ -3810,7 +3810,7 @@ private:
     GlobalMemoryBlock
     Layout : Matrix<ElemType>(memoryLength, miniBatchSize)
     Memory : GlobalMemoryBlock will be allocated/released by the first trainingNodes (Segment 1).
-                        miniBatchSize
+                       miniBatchSize
                  ---------------------------
                  |        Segment 1        |       Value/Gradient matrix 1
                  ---------------------------
@@ -3877,9 +3877,9 @@ public:
 };
 
 template <class ElemType>
-std::map<wstring, GlobalMemoryBlock<ElemType>>valueGlobalMemoryBlockMap;
+std::map<wstring, ElemType>valueGlobalMemoryBlockMap;
 template <class ElemType>
-std::map<wstring, GlobalMemoryBlock<ElemType>>gradientGlobalMemoryBlockMap;
+std::map<wstring, ElemType>gradientGlobalMemoryBlockMap;
 #pragma endregion
 
 
@@ -3913,8 +3913,8 @@ public:
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
-        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = gradientGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName);
-        if (it == gradientGlobalMemoryBlockMap<ElemType>.end())
+        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
+        if (it == gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
             LogicError("Global memory block not found.");
         GlobalMemoryBlock<ElemType> gradientGlobalMemoryBlock = it->second;
 
@@ -3929,8 +3929,8 @@ public:
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
     {
-        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName);
-        if (it == valueGlobalMemoryBlockMap<ElemType>.end())
+        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
+        if (it == valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
             LogicError("Global memory block not found.");
         GlobalMemoryBlock<ElemType> valueGlobalMemoryBlock = it->second;
 
@@ -3951,8 +3951,8 @@ public:
 
         InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
         auto dims = Input(0)->GetSampleLayout().GetDims();
-        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName);
-        if (it != valueGlobalMemoryBlockMap<ElemType>.end())
+        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
+        if (it != valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
             dims[2] += it->second.getIndex();
         SetDims(TensorShape(dims), HasMBLayout());
     }
@@ -3978,12 +3978,12 @@ public:
     {
         Base::RequestMatricesBeforeForwardProp(matrixPool);
 
-        if (valueGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName) == valueGlobalMemoryBlockMap<ElemType>.end())
+        if (valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName) == valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
         {
             m_valueMemoryFlag = true;
             GlobalMemoryBlock<ElemType> globalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, m_minibatchSize);
             RequestMatrixFromPool(globalMemoryBlock.globalMemoryMatrix, matrixPool);
-            valueGlobalMemoryBlockMap<ElemType>[m_memoryBlockName] = globalMemoryBlock;
+            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = globalMemoryBlock;
         }
     }
 
@@ -3992,12 +3992,12 @@ public:
     {
         Base::RequestMatricesBeforeForwardProp(matrixPool);
 
-        if (gradientGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName) == gradientGlobalMemoryBlockMap<ElemType>.end())
+        if (gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName) == gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
         {
             m_gradientMemoryFlag = true;
             GlobalMemoryBlock<ElemType> globalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, m_minibatchSize);
             RequestMatrixFromPool(globalMemoryBlock.globalMemoryMatrix, matrixPool);
-            gradientGlobalMemoryBlockMap<ElemType>[m_memoryBlockName] = globalMemoryBlock;
+            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = globalMemoryBlock;
         }
     }
 
@@ -4008,8 +4008,8 @@ public:
 
         if (m_valueMemoryFlag)
         {
-            ReleaseMatrixToPool(valueGlobalMemoryBlockMap<ElemType>[m_memoryBlockName].globalMemoryMatrix, matrixPool);
-            valueGlobalMemoryBlockMap<ElemType>.erase(valueGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName));
+            ReleaseMatrixToPool(valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName].globalMemoryMatrix, matrixPool);
+            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
             m_valueMemoryFlag = false;
         }
     }
@@ -4021,8 +4021,8 @@ public:
 
         if (m_gradientMemoryFlag)
         {
-            ReleaseMatrixToPool(gradientGlobalMemoryBlockMap<ElemType>[m_memoryBlockName].globalMemoryMatrix, matrixPool);
-            gradientGlobalMemoryBlockMap<ElemType>.erase(gradientGlobalMemoryBlockMap<ElemType>.find(m_memoryBlockName));
+            ReleaseMatrixToPool(gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName].globalMemoryMatrix, matrixPool);
+            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
             m_gradientMemoryFlag = false;
         }
     }
