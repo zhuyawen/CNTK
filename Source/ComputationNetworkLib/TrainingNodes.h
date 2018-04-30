@@ -3385,13 +3385,6 @@ public:
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
     {
-        if (m_imageLayoutKind == ImageLayoutKind::HWC)
-            puts("Layout : HWC");
-        else if (m_imageLayoutKind == ImageLayoutKind::CHW)
-            puts("Layout : CHW");
-        else
-            puts("Unkowned layout");
-
         if (m_convertRunningVariancePending)
             LogicError("%ls: Failed to convert running variance until forward prop", NodeName().c_str());
         FrameRange fr(Input(DATA)->GetMBLayout());
