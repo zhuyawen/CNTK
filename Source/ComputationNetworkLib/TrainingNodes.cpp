@@ -350,8 +350,6 @@ template class AdditiveFullConnectionNode<double>;
 
 template class GlobalMemoryBlock<float>;
 template class GlobalMemoryBlock<double>;
-template std::map<wstring, GlobalMemoryBlock<float>>;
-template std::map<wstring, GlobalMemoryBlock<double>>;
 
 template class GlobalConcatNode<float>;
 template class GlobalConcatNode<double>;

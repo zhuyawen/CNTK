@@ -3870,10 +3870,8 @@ public:
     shared_ptr<Matrix<ElemType>>globalMemoryMatrix;
 };
 
-template <class ElemType>
-std::map<wstring, ElemType>valueGlobalMemoryBlockMap;
-template <class ElemType>
-std::map<wstring, ElemType>gradientGlobalMemoryBlockMap;
+static std::map<wstring, void*>valueGlobalMemoryBlockMap = std::map<wstring, void*>();
+static std::map<wstring, void*>gradientGlobalMemoryBlockMap = std::map<wstring, void*>();
 
 static std::map<wstring, size_t>validateCounter = std::map<wstring, size_t>();
 #pragma endregion
@@ -3900,28 +3898,29 @@ public:
     {
     }
 
-    virtual void UpdateFunctionMBSize() override
-    {
-    }
-
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
-        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
-        if (it == gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
+        map<wstring, void*>::iterator it = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
+        if (it == gradientGlobalMemoryBlockMap.end())
             LogicError("Global memory block not found in BackpropToNonLooping.");
+        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(it->second);
 
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X_gradient = InputRef(0).GradientFor(fr);
         size_t numRows = Gradient().GetNumRows();
         if (m_startIndex + m_numRows != numRows)
             LogicError("Unmatched numRows in BackpropToNonLooping.");
-        it->second.updateSegmentMatrix(Gradient(), numRows);
-        it->second.getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
+        globalMemoryBlockPtr->updateSegmentMatrix(Gradient(), numRows);
+        globalMemoryBlockPtr->getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
 
         if (0 == m_segmentIndex)
         {
-            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
-            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
+            map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
+            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
+            valueGlobalMemoryBlockMap.erase(valueIt);
+            map<wstring, void*>::iterator gradientIt = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
+            delete (GlobalMemoryBlock<ElemType>*)(gradientIt->second);
+            gradientGlobalMemoryBlockMap.erase(gradientIt);
         }
     }
 
@@ -3930,22 +3929,23 @@ public:
         if (0 == m_segmentIndex)
         {
             size_t minibatchSize = InputRef(0).Value().GetNumCols();
-            GlobalMemoryBlock<ElemType> valueGlobalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_valueGlobalMemoryMatrix);
-            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = valueGlobalMemoryBlock;
-            GlobalMemoryBlock<ElemType> gradientGlobalMemoryBlock = GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_gradientGlobalMemoryMatrix);
-            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = gradientGlobalMemoryBlock;
+            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_valueGlobalMemoryMatrix);
+            valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
+            GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_gradientGlobalMemoryMatrix);
+            gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
         }
 
-        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
-        if (it == valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
+        map<wstring, void*>::iterator it = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
+        if (it == valueGlobalMemoryBlockMap.end())
             LogicError("Global memory block not found in ForwardPropNonLooping.");
+        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(it->second);
 
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X = InputRef(0).ValueFor(fr);
-        m_startIndex = it->second.getIndex();
+        m_startIndex = globalMemoryBlockPtr->getIndex();
         m_numRows = X.GetNumRows();
-        it->second.stackSegmentMatrix(X, m_numRows);
-        it->second.getSegmentMatrix(Value(), 0, it->second.getIndex());
+        globalMemoryBlockPtr->stackSegmentMatrix(X, m_numRows);
+        globalMemoryBlockPtr->getSegmentMatrix(Value(), 0, globalMemoryBlockPtr->getIndex());
 
         //wcout << L"(" << m_memoryBlockName << L", " << m_segmentIndex << L") = \t" << L"Value = (" << Value().GetNumRows() << L", " << Value().GetNumCols() << L")" << endl;
     }
@@ -3959,7 +3959,6 @@ public:
 
         InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
         auto dims = Input(0)->GetSampleLayout().GetDims();
-        map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
         if (m_segmentIndex != 0)
             dims[2] += validateCounter[m_memoryBlockName];
         validateCounter[m_memoryBlockName] = dims[2];
@@ -3989,19 +3988,7 @@ public:
         {
             RequestMatrixFromPool(m_valueGlobalMemoryMatrix, matrixPool);
             RequestMatrixFromPool(m_gradientGlobalMemoryMatrix, matrixPool);
-            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = GlobalMemoryBlock<ElemType>();
-            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>[m_memoryBlockName] = GlobalMemoryBlock<ElemType>();
         }
-    }
-
-    virtual void RequestMatricesBeforeBackprop(MatrixPool& matrixPool)
-    {
-        Base::RequestMatricesBeforeBackprop(matrixPool);
-    }
-
-    virtual void ReleaseMatricesAfterForwardProp(MatrixPool& matrixPool)
-    {
-        Base::ReleaseMatricesAfterForwardProp(matrixPool);
     }
 
     virtual void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool)
@@ -4012,8 +3999,6 @@ public:
         {
             ReleaseMatrixToPool(m_valueGlobalMemoryMatrix, matrixPool);
             ReleaseMatrixToPool(m_gradientGlobalMemoryMatrix, matrixPool);
-            valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
-            gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.erase(gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName));
         }
     }
 
