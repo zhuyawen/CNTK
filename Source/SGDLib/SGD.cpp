@@ -1281,7 +1281,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                     else if (AdjustType::Step == m_lrapiInfo.adjustType)
                         learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, floor(1.0 * m_lrapiInfo.iter / m_lrapiInfo.step));
 
-                    if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR && m_lrapiInfo.iter != 0)
+                    if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
                         fprintf(stderr, "Iteration %d: learning rate per sample = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);
                 }
 
@@ -1669,7 +1669,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
         ProfilerTimeEnd(profMinibatch, profilerEvtMainMinibatch);
 
 
-        if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToSaveModel)
+        if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToSaveModel && m_lrapiInfo.iter != 0)
             net->Save(m_modelPath + L"-Iter" + to_wstring(m_lrapiInfo.iter));
     }
 
