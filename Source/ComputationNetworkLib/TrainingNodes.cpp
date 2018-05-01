@@ -348,6 +348,8 @@ template class MarginInnerProductNode<double>;
 template class AdditiveFullConnectionNode<float>;
 template class AdditiveFullConnectionNode<double>;
 
+template class GlobalMemoryBlock<float>;
+template class GlobalMemoryBlock<double>;
 template std::map<wstring, GlobalMemoryBlock<float>>;
 template std::map<wstring, GlobalMemoryBlock<double>>;
 
