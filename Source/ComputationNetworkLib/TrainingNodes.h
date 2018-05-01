@@ -3836,7 +3836,7 @@ public:
             LogicError("Segment batch size not matches global batch size in stackSegmentMatrix.");
 
         if (numRows >= 0 && index + numRows <= memoryLength)
-            globalMemoryMatrix->AssignRowSliceValuesOf(segmentMatrix, index, numRows);
+            globalMemoryMatrix->AssignToRowSliceValuesOf(segmentMatrix, index, numRows);
         else
             LogicError("Segment range error in stackSegmentMatrix.");
 
@@ -3909,15 +3909,14 @@ public:
         map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
         if (it == gradientGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
             LogicError("Global memory block not found in BackpropToNonLooping.");
-        GlobalMemoryBlock<ElemType> gradientGlobalMemoryBlock = it->second;
 
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X_gradient = InputRef(0).GradientFor(fr);
         size_t numRows = Gradient().GetNumRows();
         if (m_startIndex + m_numRows != numRows)
             LogicError("Unmatched numRows in BackpropToNonLooping.");
-        gradientGlobalMemoryBlock.updateSegmentMatrix(Gradient(), numRows);
-        gradientGlobalMemoryBlock.getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
+        it->second.updateSegmentMatrix(Gradient(), numRows);
+        it->second.getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
 
         if (0 == m_segmentIndex)
         {
@@ -3940,14 +3939,15 @@ public:
         map<wstring, GlobalMemoryBlock<ElemType>>::iterator it = valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.find(m_memoryBlockName);
         if (it == valueGlobalMemoryBlockMap<GlobalMemoryBlock<ElemType>>.end())
             LogicError("Global memory block not found in ForwardPropNonLooping.");
-        GlobalMemoryBlock<ElemType> valueGlobalMemoryBlock = it->second;
 
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X = InputRef(0).ValueFor(fr);
-        m_startIndex = valueGlobalMemoryBlock.getIndex();
+        m_startIndex = it->second.getIndex();
         m_numRows = X.GetNumRows();
-        valueGlobalMemoryBlock.stackSegmentMatrix(X, m_numRows);
-        valueGlobalMemoryBlock.getSegmentMatrix(Value(), 0, valueGlobalMemoryBlock.getIndex());
+        it->second.stackSegmentMatrix(X, m_numRows);
+        it->second.getSegmentMatrix(Value(), 0, it->second.getIndex());
+
+        //wcout << L"(" << m_memoryBlockName << L", " << m_segmentIndex << L") = \t" << L"Value = (" << Value().GetNumRows() << L", " << Value().GetNumCols() << L")" << endl;
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
@@ -3963,6 +3963,7 @@ public:
         if (m_segmentIndex != 0)
             dims[2] += validateCounter[m_memoryBlockName];
         validateCounter[m_memoryBlockName] = dims[2];
+        //wcout << L"(" << m_memoryBlockName << L", " << m_segmentIndex << L") = " << dims[2] << L"\tTensorShape = (" << dims[2] << L", " << dims[1] << L", " << dims[0] << L")" <<endl;
         SetDims(TensorShape(dims), HasMBLayout());
     }
 
@@ -3995,7 +3996,7 @@ public:
 
     virtual void RequestMatricesBeforeBackprop(MatrixPool& matrixPool)
     {
-        Base::RequestMatricesBeforeForwardProp(matrixPool);
+        Base::RequestMatricesBeforeBackprop(matrixPool);
     }
 
     virtual void ReleaseMatricesAfterForwardProp(MatrixPool& matrixPool)
