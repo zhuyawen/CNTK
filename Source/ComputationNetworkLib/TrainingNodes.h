@@ -3442,35 +3442,80 @@ public:
 
         if (inputIndex == DATA || !m_gradientValid) // derivative with respect to the input.
         {
-            auto sliceOutputGrad          = MaskedGradientFor(fr);
-            auto sliceInputValue          = Input(DATA)->ValueFor(fr);
-            const Matrix<ElemType>& scale = Input(SCALE)->Value();
-            const Matrix<ElemType>& bias  = Input(BIAS)->Value();
+            if (Input(DATA)->OperationName() == L"GlobalConcat")
+            {
+                auto sliceOutputGrad = MaskedGradientFor(fr);
 
-            // If inputIndex is not DATA and we get here, then it means that DATA receives no gradient.
-            // However, the underlying engine does not foresee this case, and thus always needs a place
-            // to store the gradient. Hence, in that case, we create a dummy object and use that instead.
-            bool needsInputGradient = (inputIndex == DATA);
-            if (needsInputGradient && m_gradientValid) // because otherwise we already computed it into the dummy location
-                LogicError("BackpropTo: Batch-normalization data gradient must be requested before all others.");
-            if (!needsInputGradient)
-                m_dDataDummy->Resize(sliceInputValue);
-            auto sliceInputGrad = needsInputGradient ? Input(DATA)->GradientFor(fr) : m_dDataDummy->AsReference();
 
-            m_dScale->Resize(scale); // gradients for scale and bias get stored here
-            m_dBias->Resize(bias);
+                GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
+                Matrix<ElemType>sliceInputValue = Matrix<ElemType>(inputNode->m_memoryLength, Gradient().GetNumCols(), m_deviceId);
+                map<wstring, void*>::iterator it = valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName);
+                if (it == valueGlobalMemoryBlockMap.end())
+                    LogicError("Global memory block not found in BatchNormalization.");
+                GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(it->second);
+                globalMemoryBlockPtr->getSegmentMatrix(sliceInputValue, 0, inputNode->m_startIndex + inputNode->m_numRows);
 
-            double blendFactor = ComputeBlendFactor();  // interpolation weight for the running statistics (the current MB statistics are weighted with 1-this)
 
-            // Compute all derivatives in one step. Save derivatives with respect to scale and bias in temp matrices.
-            // TODO: Move this out. Follow the same pattern as the RNN node. But can't without requiring another buffer.
-            m_bnEng->Backward(sliceInputValue, sliceOutputGrad, // (in)  input from below, gradient from above
-                              sliceInputGrad,                   // (out) gradient for data input goes here  --TODO: Check if cudnn engine adds the gradient, or just overwrites (BUGBUG). CNTK engine is OK.
-                              scale,                            // (in)  out of scale and bias, only scale is needed in gradient propagation
-                              blendFactor,                      // (in)  smoothing weight for running stats (1=use only running stats)
-                              *m_savedMean, *m_savedInvStdDev,  // (in)  saved mean/invstddev values used in ForwardProp()
-                              *m_dScale, *m_dBias,              // (out) gradients for scale and bias
-                              !Input(DATA)->IsGradientInitializedBy(this)); // whether data gradient should be accumulated
+                const Matrix<ElemType>& scale = Input(SCALE)->Value();
+                const Matrix<ElemType>& bias = Input(BIAS)->Value();
+
+                // If inputIndex is not DATA and we get here, then it means that DATA receives no gradient.
+                // However, the underlying engine does not foresee this case, and thus always needs a place
+                // to store the gradient. Hence, in that case, we create a dummy object and use that instead.
+                bool needsInputGradient = (inputIndex == DATA);
+                if (needsInputGradient && m_gradientValid) // because otherwise we already computed it into the dummy location
+                    LogicError("BackpropTo: Batch-normalization data gradient must be requested before all others.");
+                if (!needsInputGradient)
+                    m_dDataDummy->Resize(sliceInputValue);
+                auto sliceInputGrad = needsInputGradient ? Input(DATA)->GradientFor(fr) : m_dDataDummy->AsReference();
+
+                m_dScale->Resize(scale); // gradients for scale and bias get stored here
+                m_dBias->Resize(bias);
+
+                double blendFactor = ComputeBlendFactor();  // interpolation weight for the running statistics (the current MB statistics are weighted with 1-this)
+
+                                                            // Compute all derivatives in one step. Save derivatives with respect to scale and bias in temp matrices.
+                                                            // TODO: Move this out. Follow the same pattern as the RNN node. But can't without requiring another buffer.
+                m_bnEng->Backward(sliceInputValue, sliceOutputGrad, // (in)  input from below, gradient from above
+                    sliceInputGrad,                   // (out) gradient for data input goes here  --TODO: Check if cudnn engine adds the gradient, or just overwrites (BUGBUG). CNTK engine is OK.
+                    scale,                            // (in)  out of scale and bias, only scale is needed in gradient propagation
+                    blendFactor,                      // (in)  smoothing weight for running stats (1=use only running stats)
+                    *m_savedMean, *m_savedInvStdDev,  // (in)  saved mean/invstddev values used in ForwardProp()
+                    *m_dScale, *m_dBias,              // (out) gradients for scale and bias
+                    !Input(DATA)->IsGradientInitializedBy(this)); // whether data gradient should be accumulated
+            }
+            else
+            {
+                auto sliceOutputGrad = MaskedGradientFor(fr);
+                auto sliceInputValue = Input(DATA)->ValueFor(fr);
+                const Matrix<ElemType>& scale = Input(SCALE)->Value();
+                const Matrix<ElemType>& bias  = Input(BIAS)->Value();
+
+                // If inputIndex is not DATA and we get here, then it means that DATA receives no gradient.
+                // However, the underlying engine does not foresee this case, and thus always needs a place
+                // to store the gradient. Hence, in that case, we create a dummy object and use that instead.
+                bool needsInputGradient = (inputIndex == DATA);
+                if (needsInputGradient && m_gradientValid) // because otherwise we already computed it into the dummy location
+                    LogicError("BackpropTo: Batch-normalization data gradient must be requested before all others.");
+                if (!needsInputGradient)
+                    m_dDataDummy->Resize(sliceInputValue);
+                auto sliceInputGrad = needsInputGradient ? Input(DATA)->GradientFor(fr) : m_dDataDummy->AsReference();
+
+                m_dScale->Resize(scale); // gradients for scale and bias get stored here
+                m_dBias->Resize(bias);
+
+                double blendFactor = ComputeBlendFactor();  // interpolation weight for the running statistics (the current MB statistics are weighted with 1-this)
+
+                                                            // Compute all derivatives in one step. Save derivatives with respect to scale and bias in temp matrices.
+                                                            // TODO: Move this out. Follow the same pattern as the RNN node. But can't without requiring another buffer.
+                m_bnEng->Backward(sliceInputValue, sliceOutputGrad, // (in)  input from below, gradient from above
+                    sliceInputGrad,                   // (out) gradient for data input goes here  --TODO: Check if cudnn engine adds the gradient, or just overwrites (BUGBUG). CNTK engine is OK.
+                    scale,                            // (in)  out of scale and bias, only scale is needed in gradient propagation
+                    blendFactor,                      // (in)  smoothing weight for running stats (1=use only running stats)
+                    *m_savedMean, *m_savedInvStdDev,  // (in)  saved mean/invstddev values used in ForwardProp()
+                    *m_dScale, *m_dBias,              // (out) gradients for scale and bias
+                    !Input(DATA)->IsGradientInitializedBy(this)); // whether data gradient should be accumulated
+            }
 
             m_gradientValid = true;
         }
@@ -3495,12 +3540,12 @@ public:
         // No derivatives with respect to running mean and variance.
     }
 
-    //virtual bool InputUsedInComputingInputNodesGradients(size_t childIndex) const override
-    //{
-        //if (childIndex == DATA)
-            //return false;
-        //return true;
-    //}
+    virtual bool InputUsedInComputingInputNodesGradients(size_t childIndex) const override
+    {
+        if (childIndex == DATA && Input(DATA)->OperationName() == L"GlobalConcat")
+            return false;
+        return true;
+    }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
 
