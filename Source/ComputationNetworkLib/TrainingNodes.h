@@ -4073,7 +4073,6 @@ public:
         fstream >> m_memoryBlockName >> m_memoryLength >> m_startIndex >> m_numRows >> m_segmentIndex;
     }
 
-private:
     wstring m_memoryBlockName;
     size_t m_memoryLength;
     size_t m_segmentIndex;
