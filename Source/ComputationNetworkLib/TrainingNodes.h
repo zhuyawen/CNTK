@@ -3802,20 +3802,20 @@ private:
 /*
     GlobalMemoryBlock
     Layout : Matrix<ElemType>(memoryLength, miniBatchSize)
-    Memory : GlobalMemoryBlock will be allocated/released by the first trainingNodes (Segment 1).
+    Memory : GlobalMemoryBlock will be allocated/released by the first trainingNodes (Segment 0).
                         miniBatchSize
                  ---------------------------
-                 |        Segment 1        |       Value/Gradient matrix 1
+                 |        Segment 0        |       Value/Gradient matrix 0
                  ---------------------------
-                 |        Segment 2        |       Value/Gradient matrix 2
+                 |        Segment 1        |       Value/Gradient matrix 1
                  ---------------------------
                  |           .             |
     memoryLength |           .             |
                  |           .             |
                  ---------------------------
-                 |        Segment n-1      |       Value/Gradient matrix n - 1
+                 |        Segment n-2      |       Value/Gradient matrix n - 2
                  ---------------------------
-                 |        Segment n        |       Value/Gradient matrix n
+                 |        Segment n-1      |       Value/Gradient matrix n - 1
                  ---------------------------
 */
 template <class ElemType>
@@ -3824,15 +3824,17 @@ class GlobalMemoryBlock
 public:
     GlobalMemoryBlock() {}
 
-    GlobalMemoryBlock(size_t _memoryLength, size_t _miniBatchSize, shared_ptr<Matrix<ElemType>> _globalMemoryMatrix)
-        : memoryLength(_memoryLength), miniBatchSize(_miniBatchSize), globalMemoryMatrix(_globalMemoryMatrix), index(0)
+    GlobalMemoryBlock(size_t _memoryLength, size_t _minibatchSize, shared_ptr<Matrix<ElemType>> _globalMemoryMatrix, bool needInit = false)
+        : memoryLength(_memoryLength), minibatchSize(_minibatchSize), globalMemoryMatrix(_globalMemoryMatrix), index(0)
     {
-        globalMemoryMatrix->Resize(memoryLength, miniBatchSize);
+        globalMemoryMatrix->Resize(memoryLength, minibatchSize);
+        if (needInit)
+            globalMemoryMatrix->SetValue((ElemType)0);
     }
 
     void stackSegmentMatrix(const Matrix<ElemType>& segmentMatrix, size_t numRows)
     {
-        if (segmentMatrix.GetNumCols() != miniBatchSize)
+        if (segmentMatrix.GetNumCols() != minibatchSize)
             LogicError("Segment batch size not matches global batch size in stackSegmentMatrix.");
 
         if (numRows >= 0 && index + numRows <= memoryLength)
@@ -3845,7 +3847,7 @@ public:
 
     void getSegmentMatrix(Matrix<ElemType>& segmentMatrix, size_t startIndex, size_t numRows)
     {
-        if (segmentMatrix.GetNumCols() != miniBatchSize)
+        if (segmentMatrix.GetNumCols() != minibatchSize)
             LogicError("Segment batch size not matches global batch size in getSegmentMatrix.");
 
         if (startIndex >= 0 && numRows >= 0 && startIndex + numRows <= memoryLength)
@@ -3865,7 +3867,7 @@ public:
     }
 
     size_t memoryLength; // row
-    size_t miniBatchSize; // col
+    size_t minibatchSize; // col
     size_t index;
     shared_ptr<Matrix<ElemType>>globalMemoryMatrix;
 };
@@ -3898,6 +3900,18 @@ public:
     {
     }
 
+    virtual void UpdateFunctionMBSize() override
+    {
+        if (0 == m_segmentIndex)
+        {
+            size_t minibatchSize = InputRef(0).Value().GetNumCols();
+            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_valueGlobalMemoryMatrix);
+            valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
+            GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_gradientGlobalMemoryMatrix, true);
+            gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
+        }
+    }
+
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
         map<wstring, void*>::iterator it = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
@@ -3910,8 +3924,13 @@ public:
         size_t numRows = Gradient().GetNumRows();
         if (m_startIndex + m_numRows != numRows)
             LogicError("Unmatched numRows in BackpropToNonLooping.");
+        //ofstream debugFile("F:\\Users\\v-zhmao\\debug.txt", ios::app);
+        //debugFile << "Gradient(" << Gradient().GetNumRows() << ", " << Gradient().GetNumCols() << ")" << endl;
         globalMemoryBlockPtr->updateSegmentMatrix(Gradient(), numRows);
+        //debugFile << m_segmentIndex << "\tBackpropToNonLooping : updateSegmentMatrix(0, " << numRows << ")" << endl;
         globalMemoryBlockPtr->getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
+        //debugFile << m_segmentIndex << "\tBackpropToNonLooping : getSegmentMatrix(" << m_startIndex <<", " << m_numRows << ")" << endl;
+        //debugFile.close();
 
         if (0 == m_segmentIndex)
         {
@@ -3926,15 +3945,6 @@ public:
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
     {
-        if (0 == m_segmentIndex)
-        {
-            size_t minibatchSize = InputRef(0).Value().GetNumCols();
-            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_valueGlobalMemoryMatrix);
-            valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
-            GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_gradientGlobalMemoryMatrix);
-            gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
-        }
-
         map<wstring, void*>::iterator it = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
         if (it == valueGlobalMemoryBlockMap.end())
             LogicError("Global memory block not found in ForwardPropNonLooping.");
@@ -3944,10 +3954,14 @@ public:
         auto X = InputRef(0).ValueFor(fr);
         m_startIndex = globalMemoryBlockPtr->getIndex();
         m_numRows = X.GetNumRows();
+        //ofstream debugFile("F:\\Users\\v-zhmao\\debug.txt", ios::app);
+        //debugFile << "Value(" << Value().GetNumRows() << ", " << Value().GetNumCols() << ")" << endl;
         globalMemoryBlockPtr->stackSegmentMatrix(X, m_numRows);
+        //debugFile << m_segmentIndex << "\tForwardPropNonLooping : stackSegmentMatrix(" << m_startIndex << ", " << m_numRows << ")" << endl;
         globalMemoryBlockPtr->getSegmentMatrix(Value(), 0, globalMemoryBlockPtr->getIndex());
-
+        //debugFile << m_segmentIndex << "\tForwardPropNonLooping : getSegmentMatrix(0, " << globalMemoryBlockPtr->getIndex() << ")" << endl;
         //wcout << L"(" << m_memoryBlockName << L", " << m_segmentIndex << L") = \t" << L"Value = (" << Value().GetNumRows() << L", " << Value().GetNumCols() << L")" << endl;
+        //debugFile.close();
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
@@ -3986,8 +4000,8 @@ public:
 
         if (0 == m_segmentIndex)
         {
-            RequestMatrixFromPool(m_valueGlobalMemoryMatrix, matrixPool);
-            RequestMatrixFromPool(m_gradientGlobalMemoryMatrix, matrixPool);
+            RequestMatrixFromPool(m_valueGlobalMemoryMatrix, matrixPool, m_memoryLength, true);
+            RequestMatrixFromPool(m_gradientGlobalMemoryMatrix, matrixPool, m_memoryLength, true);
         }
     }
 
