@@ -1005,9 +1005,9 @@ namespace CNTK
                 }
                 case PrimitiveOpType::GlobalConcat:
                 {
-                    auto memoryBlockName = functionConfig[PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryBlockName].Value<std::wstring>();
-                    auto memoryLength = functionConfig[PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryLength].Value<size_t>();
-                    auto segmentIndex = functionConfig[PrimitiveFunction::AttributeAdditiveFullGlobalConcatSegmentIndex].Value<size_t>();
+                    auto memoryBlockName = functionConfig[PrimitiveFunction::AttributeGlobalConcatMemoryBlockName].Value<std::wstring>();
+                    auto memoryLength = functionConfig[PrimitiveFunction::AttributeGlobalConcatMemoryLength].Value<size_t>();
+                    auto segmentIndex = functionConfig[PrimitiveFunction::AttributeGlobalConcatSegmentIndex].Value<size_t>();
                     computationNodePtr = New<GlobalConcatNode<ElementType>>(network->GetDeviceId(), internalNodeName, memoryBlockName, memoryLength, segmentIndex);
                     break;
                 }

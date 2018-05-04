@@ -1837,9 +1837,9 @@ namespace CNTK
     {
         std::vector<Variable> operands = { features };
         auto additionalProperties = Dictionary();
-        additionalProperties[PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryBlockName] = memoryBlockName;
-        additionalProperties[PrimitiveFunction::AttributeAdditiveFullGlobalConcatMemoryLength] = memoryLength;
-        additionalProperties[PrimitiveFunction::AttributeAdditiveFullGlobalConcatSegmentIndex] = segmentIndex;
+        additionalProperties[PrimitiveFunction::AttributeGlobalConcatMemoryBlockName] = memoryBlockName;
+        additionalProperties[PrimitiveFunction::AttributeGlobalConcatMemoryLength] = memoryLength;
+        additionalProperties[PrimitiveFunction::AttributeGlobalConcatSegmentIndex] = segmentIndex;
         return UnaryOp(PrimitiveOpType::GlobalConcat, features, std::move(additionalProperties), name);
     }
 

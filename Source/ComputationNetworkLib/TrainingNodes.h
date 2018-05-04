@@ -3085,9 +3085,9 @@ private:
 #pragma region GlobalMemoryBlock
 /*
     GlobalMemoryBlock
-    Layout : Matrix<ElemType>(memoryLength, miniBatchSize)
+    Layout : Matrix<ElemType>(memoryLength, minibatchSize)
     Memory : GlobalMemoryBlock will be allocated/released by the first trainingNodes (Segment 0).
-                        miniBatchSize
+                        minibatchSize
                  ---------------------------
                  |        Segment 0        |       Value/Gradient matrix 0
                  ---------------------------

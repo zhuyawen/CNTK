@@ -311,9 +311,9 @@ namespace CNTK
         static const std::wstring AttributeAdditiveFullConnectionBiasPower;
         static const std::wstring AttributeAdditiveFullConnectionBiasMin;
         static const std::wstring AttributeAdditiveFullConnectionBiasMax;
-        static const std::wstring AttributeAdditiveFullGlobalConcatMemoryBlockName;
-        static const std::wstring AttributeAdditiveFullGlobalConcatMemoryLength;
-        static const std::wstring AttributeAdditiveFullGlobalConcatSegmentIndex;
+        static const std::wstring AttributeGlobalConcatMemoryBlockName;
+        static const std::wstring AttributeGlobalConcatMemoryLength;
+        static const std::wstring AttributeGlobalConcatSegmentIndex;
 
     protected:
         PrimitiveFunction(PrimitiveOpType op, const std::vector<Variable>& inputs, Dictionary&& functionConfig, const std::wstring& functionName, const std::wstring& uid)
