@@ -1256,7 +1256,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                     learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, floor(1.0 * m_lrapiInfo.iter / m_lrapiInfo.step));
 
                 if (m_lrapiInfo.iter >= m_lrapiInfo.maxIter)
-                    m_lrapiInfo.setReachMaxIter(true);
+                    m_lrapiInfo.reachMaxIter = true;
 
                 if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
                     fprintf(stderr, "Iteration %d: learning rate per sample = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);

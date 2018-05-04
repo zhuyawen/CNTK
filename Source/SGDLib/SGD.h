@@ -125,16 +125,6 @@ struct LRAPIInfo
     bool reachMaxIter = false;
 
     LRAPIInfo() {}
-    void setAdjustType(AdjustType _adjustType) { adjustType = _adjustType; }
-    void setIter(size_t _iter) { iter = _iter; }
-    void setMaxIter(size_t _maxIter) { maxIter = _maxIter; }
-    void setStep(size_t _step) { step = _step; }
-    void setBase(double _base_) { base_ = _base_; }
-    void setGamma(double _gamma) { gamma = _gamma; }
-    void setPower(double _power) { power = _power; }
-    void setNumItersToShowLR(size_t _numItersToShowLR) { numItersToShowLR = _numItersToShowLR; }
-    void setNumItersToSaveModel(size_t _numItersToSaveModel) { numItersToSaveModel = _numItersToSaveModel; }
-    void setReachMaxIter(bool _reachMaxIter) { reachMaxIter = _reachMaxIter; }
 };
 
 struct BestEpoch
