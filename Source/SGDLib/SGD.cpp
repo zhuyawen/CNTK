@@ -1241,6 +1241,28 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                                               dynamic_pointer_cast<ComputationNode<ElemType>>(labelNodes[0])->Value());
             }
 
+
+            // adjust learning rate by iteration
+            if (m_lrapiInfo.adjustType != AdjustType::None)
+            {
+                ++m_lrapiInfo.iter;
+                if (AdjustType::Poly == m_lrapiInfo.adjustType)
+                    learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(1 - 1.0 * m_lrapiInfo.iter / m_lrapiInfo.maxIter, m_lrapiInfo.power);
+                else if (AdjustType::Inv == m_lrapiInfo.adjustType)
+                    learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(1 + m_lrapiInfo.gamma * m_lrapiInfo.iter, -m_lrapiInfo.power);
+                else if (AdjustType::Exp == m_lrapiInfo.adjustType)
+                    learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, m_lrapiInfo.iter);
+                else if (AdjustType::Step == m_lrapiInfo.adjustType)
+                    learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, floor(1.0 * m_lrapiInfo.iter / m_lrapiInfo.step));
+
+                if (m_lrapiInfo.iter >= m_lrapiInfo.maxIter)
+                    m_lrapiInfo.setReachMaxIter(true);
+
+                if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
+                    fprintf(stderr, "Iteration %d: learning rate per sample = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);
+            }
+
+
             // do forward and back propagation
 
             // We optionally break the minibatch into sub-minibatches.
@@ -1266,38 +1288,12 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 // ===========================================================
                 // backprop
                 // ===========================================================
-
-
-                // adjust learning rate by iteration
-                if (m_lrapiInfo.adjustType != AdjustType::None)
-                {
-                    ++m_lrapiInfo.iter;
-                    if (AdjustType::Poly == m_lrapiInfo.adjustType)
-                        learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(1 - 1.0 * m_lrapiInfo.iter / m_lrapiInfo.maxIter, m_lrapiInfo.power);
-                    else if (AdjustType::Inv == m_lrapiInfo.adjustType)
-                        learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(1 + m_lrapiInfo.gamma * m_lrapiInfo.iter, -m_lrapiInfo.power);
-                    else if (AdjustType::Exp == m_lrapiInfo.adjustType)
-                        learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, m_lrapiInfo.iter);
-                    else if (AdjustType::Step == m_lrapiInfo.adjustType)
-                        learnRatePerSample = m_lrapiInfo.base_ / m_mbSize[epochNumber] * pow(m_lrapiInfo.gamma, floor(1.0 * m_lrapiInfo.iter / m_lrapiInfo.step));
-
-                    if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
-                        fprintf(stderr, "Iteration %d: learning rate per sample = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);
-                }
-
-
                 //if (learnRatePerSample > 0.01 * m_minLearnRate) // only compute gradient when learning rate is large enough
                     net->Backprop(criterionNodes[0]);
 
                 // house-keeping for sub-minibatching
                 if (actualNumSubminibatches > 1)
                     smbDispatcher.DoneWithCurrentSubMinibatch(ismb); // page state out
-
-                if (m_lrapiInfo.iter >= m_lrapiInfo.maxIter)
-                {
-                    m_lrapiInfo.setReachMaxIter(true);
-                    break;
-                }
             }                                                        // end sub-minibatch loop
 
             if (actualNumSubminibatches > 1)
