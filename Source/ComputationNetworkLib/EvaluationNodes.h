@@ -1395,42 +1395,6 @@ public:
         fstream >> m_decodeType;
         fstream >> m_threshold;
         fstream >> m_beamWidth;
-
-        ifstream inFile("decodeType.txt", ios::in);
-        if (inFile)
-        {
-            string decodeType;
-            inFile >> decodeType;
-            if (decodeType == "prefixsearch" || decodeType == "Prefixsearch" || decodeType == "prefixSearch" || decodeType == "PrefixSearch")
-            {
-                inFile >> m_threshold;
-                if (m_threshold > 0)
-                {
-                    m_decodeType = CTCDecodeType::PrefixSearch;
-                    cout << "Decode type : PrefixSearch\tthreshold = " << m_threshold << endl;
-                }
-                else
-                    LogicError("In prefix search, threshold should be greater than 0.");
-            }
-            else if (decodeType == "beamsearch" || decodeType == "Beamsearch" || decodeType == "beamSearch" || decodeType == "BeamSearch")
-            {
-                inFile >> m_beamWidth;
-                if (m_beamWidth > 0)
-                {
-                    m_decodeType = CTCDecodeType::BeamSearch;
-                    cout << "Decode type : BeamSearch\tbeamWidth = " << m_beamWidth << endl;
-                }
-                else
-                    LogicError("In beam search, beam width should be greater than 0.");
-            }
-            else if (decodeType != "bestpath" && decodeType != "Bestpath" &&decodeType != "bestPath" &&decodeType != "BestPath")
-                LogicError("Not support decode type : %s.", decodeType.c_str());
-            else
-                cout << "Decode type : BestPath" << endl;
-        }
-        else
-            cout << "Decode type : BestPath" << endl;
-        inFile.close();
     }
 
     float SubstitutionPenalty() const { return m_subPen; }
