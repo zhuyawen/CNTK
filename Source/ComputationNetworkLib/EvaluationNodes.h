@@ -15,6 +15,7 @@
 #include <stdexcept>
 #include <list>
 #include <memory>
+#include <queue>
 
 
 namespace Microsoft { namespace MSR { namespace CNTK {
@@ -24,7 +25,71 @@ namespace Microsoft { namespace MSR { namespace CNTK {
 // Performs classification and error counting.
 // Result is an error rate, lower = better.
 // -----------------------------------------------------------------------
-
+    static map<size_t, size_t>TIMIT_61to39_map =
+    {
+        { (size_t)0, (size_t)0 },
+        { (size_t)1, (size_t)12 },
+        { (size_t)2, (size_t)1 },
+        { (size_t)3, (size_t)0 },
+        { (size_t)4, (size_t)13 },
+        { (size_t)5, (size_t)1 },
+        { (size_t)6, (size_t)1 },
+        { (size_t)7, (size_t)2 },
+        { (size_t)8, (size_t)14 },
+        { (size_t)9, (size_t)15 },
+        { (size_t)10, (size_t)11 },
+        { (size_t)11, (size_t)16 },
+        { (size_t)12, (size_t)17 },
+        { (size_t)13, (size_t)11 },
+        { (size_t)14, (size_t)18 },
+        { (size_t)15, (size_t)19 },
+        { (size_t)16, (size_t)20 },
+        { (size_t)17, (size_t)5 },
+        { (size_t)18, (size_t)6 },
+        { (size_t)19, (size_t)7 },
+        { (size_t)20, (size_t)8 },
+        { (size_t)21, (size_t)11 },
+        { (size_t)22, (size_t)2 },
+        { (size_t)23, (size_t)21 },
+        { (size_t)24, (size_t)22 },
+        { (size_t)25, (size_t)23 },
+        { (size_t)26, (size_t)11 },
+        { (size_t)27, (size_t)11 },
+        { (size_t)28, (size_t)3 },
+        { (size_t)29, (size_t)3 },
+        { (size_t)30, (size_t)4 },
+        { (size_t)31, (size_t)4 },
+        { (size_t)32, (size_t)24 },
+        { (size_t)33, (size_t)25 },
+        { (size_t)34, (size_t)26 },
+        { (size_t)35, (size_t)11 },
+        { (size_t)36, (size_t)5 },
+        { (size_t)37, (size_t)6 },
+        { (size_t)38, (size_t)7 },
+        { (size_t)39, (size_t)8 },
+        { (size_t)40, (size_t)7 },
+        { (size_t)41, (size_t)27 },
+        { (size_t)42, (size_t)28 },
+        { (size_t)43, (size_t)29 },
+        { (size_t)44, (size_t)11 },
+        { (size_t)45, (size_t)11 },
+        { (size_t)47, (size_t)30 },
+        { (size_t)48, (size_t)31 },
+        { (size_t)49, (size_t)9 },
+        { (size_t)50, (size_t)32 },
+        { (size_t)51, (size_t)11 },
+        { (size_t)52, (size_t)33 },
+        { (size_t)53, (size_t)34 },
+        { (size_t)54, (size_t)10 },
+        { (size_t)55, (size_t)10 },
+        { (size_t)56, (size_t)35 },
+        { (size_t)57, (size_t)36 },
+        { (size_t)58, (size_t)37 },
+        { (size_t)59, (size_t)38 },
+        { (size_t)60, (size_t)9 },
+        { (size_t)46, (size_t)39 },
+        { (size_t)61, (size_t)40 }
+    };
 template <class ElemType>
 class ClassificationErrorNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>
 {
@@ -458,6 +523,16 @@ protected:
 template class NDCG1EvalNode<float>;
 template class NDCG1EvalNode<double>;
 
+enum CTCDecodeType
+{
+    BestPath,
+    PrefixSearch,
+    BeamSearch,
+    NotDecode
+};
+
+
+
 // Edit distance error evaluation node with the option of specifying penalty of substitution, deletion and insertion, as well as squashing the input sequences and ignoring certain samples.
 // Using the classic DP algorithm as described in https://en.wikipedia.org/wiki/Edit_distance, adjusted to take into account the penalties.
 // 
@@ -484,13 +559,550 @@ public:
     EditDistanceErrorNode(DEVICEID_TYPE deviceId, const wstring & name, float subPen = 1.0f, float delPen = 1.0f, float insPen = 1.0f, bool squashInputs = false, vector<size_t> tokensToIgnore = {})
         : Base(deviceId, name), m_subPen(subPen), m_delPen(delPen), m_insPen(insPen), m_squashInputs(squashInputs), m_tokensToIgnore(tokensToIgnore)
     {
+        m_tokensToIgnore.clear();
+        m_tokensToIgnore.push_back(61);
+        m_decodeType = CTCDecodeType::BestPath;
     }
 
     EditDistanceErrorNode(const ScriptableObjects::IConfigRecordPtr configp)
         : EditDistanceErrorNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"subPen"), configp->Get(L"delPen"), configp->Get(L"insPen"), configp->Get(L"squashInputs"), {})
     {
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
-        m_tokensToIgnore = ScriptableObjects::ConfigArray::FlattenedVectorFrom<size_t>(configp->Get(L"tokensToIgnore"));
+    }
+
+    struct ArrayPool
+    {
+        vector<long double*>ptrs;
+
+        long double* requestArray(int len, int& ptrId)
+        {
+            long double* ptr = new long double[len];
+            ptrId = ptrs.size();
+            ptrs.push_back(ptr);
+            return ptr;
+        }
+
+        void releaseArray()
+        {
+            for (size_t i(0); i < ptrs.size(); ++i)
+            {
+                if (ptrs[i] != NULL)
+                    delete[] ptrs[i];
+            }
+        }
+    };
+
+    struct BeamPath
+    {
+        vector<size_t>path;
+        long double pb;
+        long double pn;
+        long double probability;
+        BeamPath() {}
+
+        bool friend operator<(const BeamPath& a, const BeamPath& b)
+        {
+            return a.probability > b.probability;
+        }
+    };
+
+    struct PrefixPath
+    {
+        vector<unsigned short>path;
+        long double* pn;
+        long double* pb;
+        long double probability;
+        long double remainingProbability;
+        int ptrId1;
+        int ptrId2;
+
+        PrefixPath() {}
+
+        PrefixPath(int t, ArrayPool& ap)
+        {
+            pn = ap.requestArray(t, ptrId1);
+            pb = ap.requestArray(t, ptrId2);
+        }
+
+        void release(ArrayPool& ap)
+        {
+            delete[] pn;
+            delete[] pb;
+            ap.ptrs[ptrId1] = NULL;
+            ap.ptrs[ptrId2] = NULL;
+        }
+
+        bool friend operator<(const PrefixPath& a, const PrefixPath& b)
+        {
+            return a.probability < b.probability;
+        }
+    };
+
+    void prefixSearchImpl(vector<vector<long double>>& CTC_probability, vector<size_t>& path)
+    {
+        ArrayPool ap;
+        priority_queue<PrefixPath>pathQueue;
+        int timeStep = CTC_probability.size();
+        PrefixPath bestPath(timeStep, ap);
+        PrefixPath result;
+        bestPath.probability = (long double)1.0;
+        for (int i(0); i < timeStep; ++i)
+        {
+            bestPath.probability *= CTC_probability[i][40];
+            bestPath.pb[i] = bestPath.probability;
+            bestPath.pn[i] = (long double)0.0;
+        }
+        bestPath.remainingProbability = 1 - bestPath.probability;
+        result.probability = bestPath.probability;
+
+        while (bestPath.remainingProbability > result.probability)
+        {
+            long double remainingProbability = bestPath.remainingProbability;
+            int pathLen = bestPath.path.size();
+            for (unsigned short i(0); i < 40; ++i)
+            {
+                PrefixPath extendedPath(timeStep, ap);
+                extendedPath.path.resize(pathLen + 1);
+                for (int j(0); j < pathLen; ++j)
+                    extendedPath.path[j] = bestPath.path[j];
+                extendedPath.path[pathLen] = i;
+                if (0 == pathLen)
+                    extendedPath.pn[0] = CTC_probability[0][i];
+                else
+                    extendedPath.pn[0] = (long double)0.0;
+                extendedPath.pb[0] = (long double)0.0;
+
+                long double prefixProb = extendedPath.pn[0];
+                for (int j(1); j < timeStep; ++j)
+                {
+                    long double newLabelProb = bestPath.pb[j - 1];
+                    if (0 == pathLen || bestPath.path[pathLen - 1] != i)
+                        newLabelProb += bestPath.pn[j - 1];
+                    extendedPath.pn[j] = CTC_probability[j][i] * (newLabelProb + extendedPath.pn[j - 1]);
+                    extendedPath.pb[j] = CTC_probability[j][40] * (extendedPath.pb[j - 1] + extendedPath.pn[j - 1]);
+                    prefixProb += CTC_probability[j][i] * newLabelProb;
+                }
+
+                extendedPath.probability = extendedPath.pn[timeStep - 1] + extendedPath.pb[timeStep - 1];
+                extendedPath.remainingProbability = prefixProb - extendedPath.probability;
+                remainingProbability -= extendedPath.remainingProbability;
+
+                if (extendedPath.probability > result.probability)
+                    result = extendedPath;
+                if (extendedPath.remainingProbability > result.probability)
+                    pathQueue.push(extendedPath);
+                else
+                    extendedPath.release(ap);
+                if (remainingProbability <= result.probability)
+                    break;
+            }
+            bestPath.release(ap);
+
+            if (pathQueue.empty())
+                break;
+            bestPath = pathQueue.top();
+            pathQueue.pop();
+        }
+
+        ap.releaseArray();
+
+        for (size_t i(0); i < result.path.size(); ++i)
+        {
+            if (result.path[i] != 39)
+                path.push_back((size_t)(result.path[i]));
+        }
+    }
+
+    void beamSearchImpl(const vector<vector<long double>>& CTC_probability, vector<size_t>& path)
+    {
+        int timeStep = CTC_probability.size();
+        vector<BeamPath>bestBeamPaths;
+        vector<BeamPath>tempPaths;
+        for (size_t i(0); i < 40; ++i)
+        {
+            BeamPath beamPath;
+            beamPath.path.push_back(i);
+            beamPath.pb = (long double)0.0;
+            beamPath.pn = CTC_probability[0][i];
+            beamPath.probability = CTC_probability[0][i];
+            bestBeamPaths.push_back(beamPath);
+        }
+        BeamPath beamPath;
+        beamPath.pn = (long double)0.0;
+        beamPath.pb = CTC_probability[0][40];
+        beamPath.probability = CTC_probability[0][40];
+        bestBeamPaths.push_back(beamPath);
+        sort(bestBeamPaths.begin(), bestBeamPaths.end());
+
+
+        for (int i(1); i < timeStep; ++i)
+        {
+            tempPaths.clear();
+            for (int j(0); j < m_beamWidth && j < bestBeamPaths.size(); ++j)
+            {
+                BeamPath p = bestBeamPaths[j];
+                int len = p.path.size();
+
+                BeamPath tempPath0;
+                tempPath0.path.resize(len);
+                for (int k(0); k < len; ++k)
+                    tempPath0.path[k] = p.path[k];
+                if (len != 0)
+                {
+                    tempPath0.pn = p.pn * CTC_probability[i][p.path[len - 1]];
+                    for (size_t k(0); k < bestBeamPaths.size(); ++k)
+                    {
+                        if (bestBeamPaths[k].path.size() == len - 1)
+                        {
+                            bool flag = true;
+                            for (size_t l(0); l < len - 1; ++l)
+                            {
+                                if (bestBeamPaths[k].path[l] != tempPath0.path[l])
+                                {
+                                    flag = false;
+                                    break;
+                                }
+                            }
+                            if (flag)
+                            {
+                                tempPath0.pn += bestBeamPaths[k].pb * CTC_probability[i][p.path[len - 1]];
+                                if (1 == len || p.path[len - 1] != p.path[len - 2])
+                                    tempPath0.pn += bestBeamPaths[k].pn * CTC_probability[i][p.path[len - 1]];
+                                break;
+                            }
+                        }
+                    }
+                }
+                tempPath0.pb = p.probability * CTC_probability[i][40];
+                tempPath0.probability = tempPath0.pb + tempPath0.pn;
+                tempPaths.push_back(tempPath0);
+
+                for (size_t k(0); k < 40; ++k)
+                {
+                    BeamPath tempPath;
+                    tempPath.path.resize(len + 1);
+                    for (int l(0); l < len; ++l)
+                        tempPath.path[l] = p.path[l];
+                    tempPath.path[len] = k;
+                    tempPath.pb = (long double)0.0;
+                    tempPath.pn = p.pb * CTC_probability[i][k];
+                    if (0 == len || k != p.path[len - 1])
+                        tempPath.pn += p.pn * CTC_probability[i][k];
+                    tempPath.probability = tempPath.pn;
+                    tempPaths.push_back(tempPath);
+                }
+            }
+
+            bestBeamPaths.clear();
+            sort(tempPaths.begin(), tempPaths.end());
+            for (int j(0); j < m_beamWidth && j < tempPaths.size(); ++j)
+                bestBeamPaths.push_back(tempPaths[j]);
+        }
+
+        for (size_t i(0); i < bestBeamPaths[0].path.size(); ++i)
+        {
+            if (bestBeamPaths[0].path[i] != 39)
+                path.push_back(bestBeamPaths[0].path[i]);
+        }
+    }
+
+    // For Timit, 41 labels (40 labels + 1 blank)
+    ElemType calPathProbabilty(const vector<size_t>& label, const vector<vector<long double>>& probabilty)
+    {
+        int timeStep = probabilty.size();
+        int length = label.size() * 2 + 1;
+        vector<vector<long double>>alpha;
+        alpha.resize(timeStep);
+        for (size_t i(0); i < alpha.size(); ++i)
+        {
+            alpha[i].resize(length);
+            fill(alpha[i].begin(), alpha[i].end(), 0);
+        }
+
+        //double result = log(probabilty[0][40] + probabilty[0][label[0]]);
+
+        alpha[0][0] = probabilty[0][40];// / (probabilty[0][40] + probabilty[0][label[0]]);
+        alpha[0][1] = probabilty[0][label[0]];// / (probabilty[0][40] + probabilty[0][label[0]]);
+
+        for (int i(1); i < timeStep; ++i)
+        {
+            alpha[i][0] = alpha[i - 1][0] * probabilty[i][40];
+            alpha[i][1] = (alpha[i - 1][0] + alpha[i - 1][1]) * probabilty[i][label[0]];
+            for (int j(2); j < length; ++j)
+            {
+                if (j >= (i + 1) * 2)
+                    break;
+
+                double _alpha = alpha[i - 1][j] + alpha[i - 1][j - 1];
+                if ((!(j & 1)) || label[j >> 1] == label[(j >> 1) - 1])
+                {
+                    if (j & 1)
+                        alpha[i][j] = _alpha * probabilty[i][label[j >> 1]];
+                    else
+                        alpha[i][j] = _alpha * probabilty[i][40];
+                }
+                else
+                {
+                    if (j & 1)
+                        alpha[i][j] = (_alpha + alpha[i - 1][j - 2]) * probabilty[i][label[j >> 1]];
+                    else
+                        alpha[i][j] = (_alpha + alpha[i - 1][j - 2]) * probabilty[i][40];
+                }
+            }
+
+            /*
+            double sum = 0;
+            for (size_t j(0); j < length; ++j)
+            sum += alpha[i][j];
+            for (size_t j(0); j < length; ++j)
+            alpha[i][j] /= sum;
+            result += log(sum);*/
+        }
+
+        return alpha[timeStep - 1][length - 1] + alpha[timeStep - 1][length - 2];
+    }
+
+    // firstSeq - first sequence of samples
+    // secondSeq - second sequence of samples
+    // numParallelSequences - number of parallel sequences in the minibatch
+    // subPen - substitution penalty
+    // delPen - deletion penalty
+    // insPen - insertion penalty
+    // squashInputs - whether to merge sequences of identical samples.
+    // tokensToIgnore - list of samples to ignore during edit distance evaluation
+    ElemType TIMIT_ComputeEditDistanceError(const CTCDecodeType decodeType, const vector<ElemType*>& labelPtr, const vector<ElemType*>& outputPtr, const vector<size_t>& colNum, const size_t rowNum,
+        float subPen, float delPen, float insPen, bool squashInputs, const size_t tokensToIgnore = 61)
+    {
+        ElemType result = 0;
+        float del, ins, sub;
+        Matrix<float>grid(CPUDEVICE); // Edit distance between subsequences
+        Matrix<float>insMatrix(CPUDEVICE); // Number of insertions between subsequences
+        Matrix<float>delMatrix(CPUDEVICE); //Number of deletions between subsequences
+        Matrix<float>subMatrix(CPUDEVICE); // Number of substitutions between subsequences
+
+        for (size_t sequenceId(0); sequenceId < colNum.size(); ++sequenceId)
+        {
+            vector<size_t>v1;
+            vector<size_t>v2;
+            size_t pre = SIZE_MAX;
+            for (size_t i(0); i < colNum[sequenceId]; ++i)
+            {
+                if ((size_t)labelPtr[sequenceId][i] == 46)
+                    pre = SIZE_MAX;
+                else if (TIMIT_61to39_map[(size_t)labelPtr[sequenceId][i]] != pre)
+                {
+                    v1.push_back(TIMIT_61to39_map[(size_t)labelPtr[sequenceId][i]]);
+                    v1.push_back(TIMIT_61to39_map[(size_t)labelPtr[sequenceId][i]]);
+                    v1.push_back(TIMIT_61to39_map[(size_t)labelPtr[sequenceId][i]]);
+                    pre = TIMIT_61to39_map[(size_t)labelPtr[sequenceId][i]];
+                }
+            }
+
+            if (CTCDecodeType::BestPath == decodeType)
+            {
+                size_t index = 0;
+                pre = SIZE_MAX;
+                for (size_t i(0); i < colNum[sequenceId]; ++i)
+                {
+                    size_t maxOutputId = 0;
+                    ElemType maxOutput = outputPtr[sequenceId][index++];
+                    for (size_t j(1); j < rowNum; ++j)
+                    {
+                        if (outputPtr[sequenceId][index] > maxOutput)
+                        {
+                            maxOutput = outputPtr[sequenceId][index];
+                            maxOutputId = j;
+                        }
+                        ++index;
+                    }
+                    if (maxOutputId == 46)
+                    {
+                        pre = SIZE_MAX;
+                        continue;
+                    }
+                    if (maxOutputId == tokensToIgnore)
+                        pre = SIZE_MAX;
+                    else if (TIMIT_61to39_map[maxOutputId] != pre)
+                    {
+                        v2.push_back(TIMIT_61to39_map[maxOutputId]);
+                        pre = TIMIT_61to39_map[maxOutputId];
+                    }
+                }
+            }
+            else if (CTCDecodeType::PrefixSearch == decodeType)
+            {
+                long double* probability = new long double[rowNum * colNum[sequenceId]];
+                size_t index = 0;
+                for (size_t i(0); i < colNum[sequenceId]; ++i)
+                {
+                    long double sum = 0;
+                    long double maxOutput = outputPtr[sequenceId][index];
+                    for (size_t j(1); j < rowNum; ++j)
+                    {
+                        if (outputPtr[sequenceId][index + j] > maxOutput)
+                            maxOutput = outputPtr[sequenceId][index + j];
+                    }
+                    for (size_t j(0); j < rowNum; ++j)
+                    {
+                        probability[index] = exp(outputPtr[sequenceId][index] - maxOutput);
+                        sum += probability[index++];
+                    }
+                    index -= rowNum;
+                    for (size_t j(0); j < rowNum; ++j)
+                        probability[index++] /= sum;
+                }
+
+                // Step 1 : find out Sections and pack data
+                vector<size_t>sectionBegin;
+                vector<size_t>sectionEnd;
+                bool flag = false;
+                for (size_t i(0); i < colNum[sequenceId]; ++i)
+                {
+                    if (probability[i * rowNum + 61] > m_threshold)
+                    {
+                        if (flag)
+                        {
+                            sectionEnd.push_back(i - 1);
+                            flag = false;
+                        }
+                    }
+                    else
+                    {
+                        if (!flag)
+                        {
+                            sectionBegin.push_back(i);
+                            flag = true;
+                        }
+                    }
+                }
+                if (flag)
+                    sectionEnd.push_back(colNum[sequenceId] - 1);
+
+                // Step 2 : calculate path for each section
+                for (size_t i(0); i < sectionBegin.size(); ++i)
+                {
+                    vector<vector<long double>>CTC_probability;
+                    CTC_probability.resize(sectionEnd[i] - sectionBegin[i] + 1);
+                    index = sectionBegin[i] * rowNum;
+                    for (size_t j(0); j < sectionEnd[i] - sectionBegin[i] + 1; ++j)
+                    {
+                        CTC_probability[j].resize(41);
+                        fill(CTC_probability[j].begin(), CTC_probability[j].end(), 0);
+                        for (size_t k(0); k < 62; ++k)
+                            CTC_probability[j][TIMIT_61to39_map[k]] += probability[index++];
+                    }
+
+                    prefixSearchImpl(CTC_probability, v2);
+                }
+
+                delete[] probability;
+            }
+            else if (CTCDecodeType::BeamSearch == decodeType)
+            {
+                long double* probability = new long double[rowNum * colNum[sequenceId]];
+                size_t index = 0;
+                for (size_t i(0); i < colNum[sequenceId]; ++i)
+                {
+                    long double sum = 0;
+                    long double maxOutput = outputPtr[sequenceId][index];
+                    for (size_t j(1); j < rowNum; ++j)
+                    {
+                        if (outputPtr[sequenceId][index + j] > maxOutput)
+                            maxOutput = outputPtr[sequenceId][index + j];
+                    }
+                    for (size_t j(0); j < rowNum; ++j)
+                    {
+                        probability[index] = exp(outputPtr[sequenceId][index] - maxOutput);
+                        sum += probability[index++];
+                    }
+                    index -= rowNum;
+                    for (size_t j(0); j < rowNum; ++j)
+                        probability[index++] /= sum;
+                }
+
+                vector<vector<long double>>CTC_probability;
+                CTC_probability.resize(colNum[sequenceId]);
+                index = 0;
+                for (size_t i(0); i < colNum[sequenceId]; ++i)
+                {
+                    CTC_probability[i].resize(41);
+                    fill(CTC_probability[i].begin(), CTC_probability[i].end(), (long double)0.0);
+                    for (size_t j(0); j < 62; ++j)
+                        CTC_probability[i][TIMIT_61to39_map[j]] += probability[index++];
+                }
+                beamSearchImpl(CTC_probability, v2);
+
+                delete[] probability;
+            }
+            else
+                LogicError("TIMIT_ComputeEditDistanceError : unkowned decodeType.");
+
+            size_t len1 = v1.size();
+            size_t len2 = v2.size();
+            grid.Resize(len1 + 1, len2 + 1);
+            insMatrix.Resize(len1 + 1, len2 + 1);
+            delMatrix.Resize(len1 + 1, len2 + 1);
+            subMatrix.Resize(len1 + 1, len2 + 1);
+            insMatrix.SetValue(0.0f);
+            delMatrix.SetValue(0.0f);
+            subMatrix.SetValue(0.0f);
+
+            for (size_t i = 0; i < len1 + 1; i++)
+            {
+                grid(i, 0) = (float)(i * delPen);
+                delMatrix(i, 0) = (float)i;
+            }
+
+            for (size_t j = 0; j < len2 + 1; j++)
+            {
+                grid(0, j) = (float)(j * insPen);
+                insMatrix(0, j) = (float)j;
+            }
+            for (size_t i = 1; i < len1 + 1; i++)
+            {
+                for (size_t j = 1; j < len2 + 1; j++)
+                {
+                    if (v1[i - 1] == v2[j - 1])
+                    {
+                        grid(i, j) = grid(i - 1, j - 1);
+                        insMatrix(i, j) = insMatrix(i - 1, j - 1);
+                        delMatrix(i, j) = delMatrix(i - 1, j - 1);
+                        subMatrix(i, j) = subMatrix(i - 1, j - 1);
+                    }
+                    else
+                    {
+                        del = grid(i - 1, j) + delPen; //deletion 
+                        ins = grid(i, j - 1) + insPen;  //insertion
+                        sub = grid(i - 1, j - 1) + subPen; //substitution 
+                        if (sub <= del && sub <= ins)
+                        {
+                            insMatrix(i, j) = insMatrix(i - 1, j - 1);
+                            delMatrix(i, j) = delMatrix(i - 1, j - 1);
+                            subMatrix(i, j) = subMatrix(i - 1, j - 1) + 1.0f;
+                            grid(i, j) = sub;
+                        }
+                        else if (del < ins)
+                        {
+                            insMatrix(i, j) = insMatrix(i - 1, j);
+                            subMatrix(i, j) = subMatrix(i - 1, j);
+                            delMatrix(i, j) = delMatrix(i - 1, j) + 1.0f;
+                            grid(i, j) = del;
+                        }
+                        else
+                        {
+                            delMatrix(i, j) = delMatrix(i, j - 1);
+                            subMatrix(i, j) = subMatrix(i, j - 1);
+                            insMatrix(i, j) = insMatrix(i, j - 1) + 1.0f;
+                            grid(i, j) = ins;
+                        }
+                    }
+                }
+            }
+
+            result += (insMatrix(len1, len2) + delMatrix(len1, len2) + subMatrix(len1, len2)) * colNum[sequenceId] / len1;
+        }
+
+        return result;
     }
 
     virtual void BackpropToNonLooping(size_t /*inputIndex*/) override
@@ -511,7 +1123,74 @@ public:
 
         MaskMissingColumnsToZero(*m_maxIndexes0, Input(0)->GetMBLayout(), frameRange);
         MaskMissingColumnsToZero(*m_maxIndexes1, Input(1)->GetMBLayout(), frameRange);
-        Value()(0, 0) = ComputeEditDistanceError(*m_maxIndexes0, *m_maxIndexes1, Input(0)->GetMBLayout(), m_subPen, m_delPen, m_insPen, m_squashInputs, m_tokensToIgnore);
+        if (Environment().IsTraining())
+            Value()(0, 0) = ComputeEditDistanceError(*m_maxIndexes0, *m_maxIndexes1, Input(0)->GetMBLayout(), m_subPen, m_delPen, m_insPen, m_squashInputs, m_tokensToIgnore);
+        else
+        {
+            if (CTCDecodeType::NotDecode == m_decodeType)
+                Value()(0, 0) = ComputeEditDistanceError(*m_maxIndexes0, *m_maxIndexes1, Input(0)->GetMBLayout(), m_subPen, m_delPen, m_insPen, m_squashInputs, m_tokensToIgnore);
+            else
+            {
+                ElemType* _labelPtr = Input(0)->ValueFor(frameRange).CopyToArray();
+                ElemType* _outputPtr = Input(1)->ValueFor(frameRange).CopyToArray();
+                size_t row = Input(0)->ValueFor(frameRange).GetNumRows();
+                if (row != 62)
+                    LogicError("Row %d not match 62.", row);
+                vector<ElemType*>labelPtr;
+                vector<ElemType*>outputPtr;
+                vector<size_t>colNum;
+
+                for (const auto& sequence : Input(0)->GetMBLayout()->GetAllSequences())
+                {
+                    if (sequence.seqId == GAP_SEQUENCE_ID)
+                        continue;
+
+                    auto numFrames = Input(0)->GetMBLayout()->GetNumSequenceFramesInCurrentMB(sequence);
+
+                    if (numFrames > 0)
+                    {
+                        auto columnIndices = Input(0)->GetMBLayout()->GetColumnIndices(sequence);
+                        size_t columnIndicesNum = columnIndices.size();
+                        colNum.push_back(columnIndicesNum);
+                        ElemType* labelPtr_ = new ElemType[columnIndicesNum];
+                        ElemType* outputPtr_ = new ElemType[columnIndicesNum * row];
+                        size_t labelIndex = 0;
+                        size_t outputIndex = 0;
+
+                        for (size_t i(0); i < columnIndicesNum; ++i)
+                        {
+                            size_t index = columnIndices[i] * row;
+                            ElemType maxLabel = _labelPtr[index];
+                            size_t maxLabelId = 0;
+                            outputPtr_[outputIndex++] = _outputPtr[index++];
+
+                            for (size_t j(1); j < row; ++j)
+                            {
+                                if (_labelPtr[index] > maxLabel)
+                                {
+                                    maxLabel = _labelPtr[index];
+                                    maxLabelId = j;
+                                }
+                                outputPtr_[outputIndex++] = _outputPtr[index++];
+                            }
+                            labelPtr_[labelIndex++] = maxLabelId;
+                        }
+
+                        labelPtr.push_back(labelPtr_);
+                        outputPtr.push_back(outputPtr_);
+                    }
+                }
+                delete[] _labelPtr;
+                delete[] _outputPtr;
+
+                Value()(0, 0) = TIMIT_ComputeEditDistanceError(m_decodeType, labelPtr, outputPtr, colNum, row, m_subPen, m_delPen, m_insPen, m_squashInputs, m_tokensToIgnore[0]);
+
+                for (size_t i(0); i < labelPtr.size(); ++i)
+                    delete[] labelPtr[i];
+                for (size_t i(0); i < outputPtr.size(); ++i)
+                    delete[] outputPtr[i];
+            }
+        }
         Value().TransferToDeviceIfNotThere(Input(0)->GetDeviceId());
     }
 
@@ -546,6 +1225,7 @@ public:
             node->m_delPen = m_delPen;
             node->m_insPen = m_insPen;
             node->m_tokensToIgnore = m_tokensToIgnore;
+            node->m_decodeType = m_decodeType;
         }
     }
 
@@ -576,17 +1256,17 @@ public:
     // insPen - insertion penalty
     // squashInputs - whether to merge sequences of identical samples.
     // tokensToIgnore - list of samples to ignore during edit distance evaluation
-    ElemType ComputeEditDistanceError(Matrix<ElemType>& firstSeq, const Matrix<ElemType> & secondSeq, MBLayoutPtr pMBLayout, 
+    ElemType ComputeEditDistanceError(Matrix<ElemType>& firstSeq, const Matrix<ElemType> & secondSeq, MBLayoutPtr pMBLayout,
         float subPen, float delPen, float insPen, bool squashInputs, const vector<size_t>& tokensToIgnore)
     {
         std::vector<int> firstSeqVec, secondSeqVec;
 
         // Edit distance between subsequences
         Matrix<float> grid(CPUDEVICE);
-        
+
         // Number of insertions between subsequences
         Matrix<float> insMatrix(CPUDEVICE);
-        
+
         //Number of deletions between subsequences
         Matrix<float> delMatrix(CPUDEVICE);
 
@@ -619,7 +1299,7 @@ public:
                 size_t secondSize = secondSeqVec.size();
                 if (Base::HasEnvironmentPtr() && Base::Environment().IsV2Library())
                     totalSampleNum += secondSize;
-                else 
+                else
                     totalSampleNum += firstSize;
 
                 grid.Resize(firstSize + 1, secondSize + 1);
@@ -699,6 +1379,9 @@ public:
         fstream << m_insPen;
         fstream << m_squashInputs;
         fstream << m_tokensToIgnore;
+        fstream << m_decodeType;
+        fstream << m_threshold;
+        fstream << m_beamWidth;
     }
 
     virtual void Load(File& fstream, size_t modelVersion) override
@@ -709,6 +1392,45 @@ public:
         fstream >> m_insPen;
         fstream >> m_squashInputs;
         fstream >> m_tokensToIgnore;
+        fstream >> m_decodeType;
+        fstream >> m_threshold;
+        fstream >> m_beamWidth;
+
+        ifstream inFile("decodeType.txt", ios::in);
+        if (inFile)
+        {
+            string decodeType;
+            inFile >> decodeType;
+            if (decodeType == "prefixsearch" || decodeType == "Prefixsearch" || decodeType == "prefixSearch" || decodeType == "PrefixSearch")
+            {
+                inFile >> m_threshold;
+                if (m_threshold > 0)
+                {
+                    m_decodeType = CTCDecodeType::PrefixSearch;
+                    cout << "Decode type : PrefixSearch\tthreshold = " << m_threshold << endl;
+                }
+                else
+                    LogicError("In prefix search, threshold should be greater than 0.");
+            }
+            else if (decodeType == "beamsearch" || decodeType == "Beamsearch" || decodeType == "beamSearch" || decodeType == "BeamSearch")
+            {
+                inFile >> m_beamWidth;
+                if (m_beamWidth > 0)
+                {
+                    m_decodeType = CTCDecodeType::BeamSearch;
+                    cout << "Decode type : BeamSearch\tbeamWidth = " << m_beamWidth << endl;
+                }
+                else
+                    LogicError("In beam search, beam width should be greater than 0.");
+            }
+            else if (decodeType != "bestpath" && decodeType != "Bestpath" &&decodeType != "bestPath" &&decodeType != "BestPath")
+                LogicError("Not support decode type : %s.", decodeType.c_str());
+            else
+                cout << "Decode type : BestPath" << endl;
+        }
+        else
+            cout << "Decode type : BestPath" << endl;
+        inFile.close();
     }
 
     float SubstitutionPenalty() const { return m_subPen; }
@@ -725,6 +1447,9 @@ private:
     float m_delPen;
     float m_insPen;
     std::vector<size_t> m_tokensToIgnore;
+    CTCDecodeType m_decodeType;
+    long double m_threshold;
+    int m_beamWidth;
 
     // Clear out_SampleSeqVec and extract a vector of samples from the matrix into out_SampleSeqVec.
     static void ExtractSampleSequence(const Matrix<ElemType>& firstSeq, vector<size_t>& columnIndices, bool squashInputs, const vector<size_t>& tokensToIgnore, std::vector<int>& out_SampleSeqVec)
