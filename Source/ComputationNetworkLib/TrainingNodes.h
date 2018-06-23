@@ -3140,7 +3140,7 @@ public:
             LogicError("Segment range error in getSegmentMatrix.");
     }
 
-    void updateSegmentMatrix(Matrix<ElemType>& segmentMatrix, size_t numRows)
+    void addSegmentMatrix(Matrix<ElemType>& segmentMatrix, size_t numRows)
     {
         globalMemoryMatrix->AddToRowSliceValuesOf(segmentMatrix, 0, numRows);
     }
@@ -3208,13 +3208,8 @@ public:
         size_t numRows = Gradient().GetNumRows();
         if (m_startIndex + m_numRows != numRows)
             LogicError("Unmatched numRows in BackpropToNonLooping.");
-        //ofstream debugFile("F:\\Users\\v-zhmao\\debug.txt", ios::app);
-        //debugFile << "Gradient(" << Gradient().GetNumRows() << ", " << Gradient().GetNumCols() << ")" << endl;
-        globalMemoryBlockPtr->updateSegmentMatrix(Gradient(), numRows);
-        //debugFile << m_segmentIndex << "\tBackpropToNonLooping : updateSegmentMatrix(0, " << numRows << ")" << endl;
+        globalMemoryBlockPtr->addSegmentMatrix(Gradient(), numRows);
         globalMemoryBlockPtr->getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
-        //debugFile << m_segmentIndex << "\tBackpropToNonLooping : getSegmentMatrix(" << m_startIndex <<", " << m_numRows << ")" << endl;
-        //debugFile.close();
 
         if (0 == m_segmentIndex)
         {
@@ -3238,14 +3233,8 @@ public:
         auto X = InputRef(0).ValueFor(fr);
         m_startIndex = globalMemoryBlockPtr->getIndex();
         m_numRows = X.GetNumRows();
-        //ofstream debugFile("F:\\Users\\v-zhmao\\debug.txt", ios::app);
-        //debugFile << "Value(" << Value().GetNumRows() << ", " << Value().GetNumCols() << ")" << endl;
         globalMemoryBlockPtr->stackSegmentMatrix(X, m_numRows);
-        //debugFile << m_segmentIndex << "\tForwardPropNonLooping : stackSegmentMatrix(" << m_startIndex << ", " << m_numRows << ")" << endl;
         globalMemoryBlockPtr->getSegmentMatrix(Value(), 0, globalMemoryBlockPtr->getIndex());
-        //debugFile << m_segmentIndex << "\tForwardPropNonLooping : getSegmentMatrix(0, " << globalMemoryBlockPtr->getIndex() << ")" << endl;
-        //wcout << L"(" << m_memoryBlockName << L", " << m_segmentIndex << L") = \t" << L"Value = (" << Value().GetNumRows() << L", " << Value().GetNumCols() << L")" << endl;
-        //debugFile.close();
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
@@ -3260,7 +3249,6 @@ public:
         if (m_segmentIndex != 0)
             dims[2] += validateCounter[m_memoryBlockName];
         validateCounter[m_memoryBlockName] = dims[2];
-        //wcout << L"(" << m_memoryBlockName << L", " << m_segmentIndex << L") = " << dims[2] << L"\tTensorShape = (" << dims[2] << L", " << dims[1] << L", " << dims[0] << L")" <<endl;
         SetDims(TensorShape(dims), HasMBLayout());
     }
 
@@ -3704,7 +3692,7 @@ public:
 
 
                 GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
-                m_tempSegment->Resize(inputNode->m_memoryLength, Gradient().GetNumCols());
+                m_tempSegment->Resize(inputNode->m_startIndex + inputNode->m_numRows, Gradient().GetNumCols());
                 map<wstring, void*>::iterator it = valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName);
                 if (it == valueGlobalMemoryBlockMap.end())
                     LogicError("Global memory block not found in BatchNormalization.");
