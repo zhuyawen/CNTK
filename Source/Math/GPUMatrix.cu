@@ -3652,7 +3652,7 @@ void GPUMatrix<ElemType>::AsoftmaxBackward2(ElemType lambda, size_t inputDimensi
     SyncGuard syncGuard;
     GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward2<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, (CUDA_LONG)inputDimension, (CUDA_LONG)outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
-        cosTheta.Data(), cosThetaQuadratic.Data(), sign0.Data(), (CUDA_LONG)X_gradient.GetNumElements());
+        cosTheta.Data(), cosThetaQuadratic.Data(), sign0.Data(), grid.m_N);
 }
 
 
@@ -3686,7 +3686,7 @@ void GPUMatrix<ElemType>::AsoftmaxBackward3(ElemType lambda, size_t inputDimensi
     SyncGuard syncGuard;
     GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward3<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, (CUDA_LONG)inputDimension, (CUDA_LONG)outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
-        cosThetaQuadratic.Data(), cosThetaCubic.Data(), sign1.Data(), sign2.Data(), (CUDA_LONG)X_gradient.GetNumElements());
+        cosThetaQuadratic.Data(), cosThetaCubic.Data(), sign1.Data(), sign2.Data(), grid.m_N);
 }
 
 
@@ -3720,7 +3720,7 @@ void GPUMatrix<ElemType>::AsoftmaxBackward4(ElemType lambda, size_t inputDimensi
     SyncGuard syncGuard;
     GridDim grid(X_gradient.GetNumElements());
     _asoftmaxBackward4<ElemType> << <grid.m_blocksPerGrid, grid.m_threadsPerBlock, 0, t_stream >> > (lambda, (CUDA_LONG)inputDimension, (CUDA_LONG)outputDimension, label.Data(), gradient.Data(), X_gradient.Data(), inputMagnitude.Data(), X.Data(), weight.Data(),
-        cosTheta.Data(), cosThetaQuadratic.Data(), cosThetaCubic.Data(), cosThetaQuartic.Data(), sign3.Data(), sign4.Data(), (CUDA_LONG)X_gradient.GetNumElements());
+        cosTheta.Data(), cosThetaQuadratic.Data(), cosThetaCubic.Data(), cosThetaQuartic.Data(), sign3.Data(), sign4.Data(), grid.m_N);
 }
 
 #pragma endregion
