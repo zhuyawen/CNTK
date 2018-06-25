@@ -3250,13 +3250,18 @@ public:
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
         Base::Validate(isFinalValidationPass);
-
         InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
-        auto dims = Input(0)->GetSampleLayout().GetDims();
-        if (m_segmentIndex != 0)
-            dims[2] += validateCounter[m_memoryBlockName];
-        validateCounter[m_memoryBlockName] = dims[2];
-        SetDims(TensorShape(dims), HasMBLayout());
+
+        if (!m_validateFlag)
+        {
+            m_dims = Input(0)->GetSampleLayout().GetDims();
+            if (m_segmentIndex != 0)
+                m_dims[2] += validateCounter[m_memoryBlockName];
+            validateCounter[m_memoryBlockName] = m_dims[2];
+            m_validateFlag = true;
+        }
+
+        SetDims(TensorShape(m_dims), HasMBLayout());
     }
 
     virtual void CopyTo(ComputationNodeBasePtr nodeP, const std::wstring& newName, const CopyNodeFlags flags) const override
@@ -3286,13 +3291,13 @@ public:
     void Save(File& fstream) const override
     {
         Base::Save(fstream);
-        fstream << m_memoryBlockName << m_memoryLength << m_startIndex << m_numRows << m_segmentIndex;
+        fstream << m_memoryBlockName << m_memoryLength << m_startIndex << m_numRows << m_segmentIndex << m_validateFlag;
     }
 
     void Load(File& fstream, size_t modelVersion) override
     {
         Base::Load(fstream, modelVersion);
-        fstream >> m_memoryBlockName >> m_memoryLength >> m_startIndex >> m_numRows >> m_segmentIndex;
+        fstream >> m_memoryBlockName >> m_memoryLength >> m_startIndex >> m_numRows >> m_segmentIndex >> m_validateFlag;
     }
 
     wstring m_memoryBlockName;
@@ -3300,6 +3305,8 @@ public:
     size_t m_segmentIndex;
     size_t m_startIndex;
     size_t m_numRows;
+    bool m_validateFlag = false;
+    SmallVector<size_t> m_dims;
 };
 #pragma endregion
 
