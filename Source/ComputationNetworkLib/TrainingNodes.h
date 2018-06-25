@@ -3108,10 +3108,10 @@ class GlobalMemoryBlock
 public:
     GlobalMemoryBlock() {}
 
-    GlobalMemoryBlock(size_t _memoryLength, size_t _minibatchSize, shared_ptr<Matrix<ElemType>> _globalMemoryMatrix, bool needInit = false)
-        : memoryLength(_memoryLength), minibatchSize(_minibatchSize), globalMemoryMatrix(_globalMemoryMatrix), index(0)
+    GlobalMemoryBlock(size_t _memoryLength, size_t _minibatchSize, DEVICEID_TYPE deviceId, bool needInit = false)
+        : memoryLength(_memoryLength), minibatchSize(_minibatchSize), index(0)
     {
-        globalMemoryMatrix->Resize(memoryLength, minibatchSize);
+        globalMemoryMatrix = new Matrix<ElemType>(memoryLength, minibatchSize, deviceId);
         if (needInit)
             globalMemoryMatrix->SetValue((ElemType)0);
     }
@@ -3150,10 +3150,15 @@ public:
         return index;
     }
 
+    void releaseMemory()
+    {
+        delete globalMemoryMatrix;
+    }
+
     size_t memoryLength; // row
     size_t minibatchSize; // col
     size_t index;
-    shared_ptr<Matrix<ElemType>>globalMemoryMatrix;
+    Matrix<ElemType>* globalMemoryMatrix;
 };
 
 static std::map<wstring, void*>valueGlobalMemoryBlockMap = std::map<wstring, void*>();
@@ -3189,9 +3194,9 @@ public:
         if (0 == m_segmentIndex)
         {
             size_t minibatchSize = InputRef(0).Value().GetNumCols();
-            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_valueGlobalMemoryMatrix);
+            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_deviceId);
             valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
-            GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_gradientGlobalMemoryMatrix, true);
+            GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_deviceId, true);
             gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
         }
     }
@@ -3215,9 +3220,11 @@ public:
         {
             map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
             delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
+            ((GlobalMemoryBlock<ElemType>*)(valueIt->second))->releaseMemory();
             valueGlobalMemoryBlockMap.erase(valueIt);
             map<wstring, void*>::iterator gradientIt = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
             delete (GlobalMemoryBlock<ElemType>*)(gradientIt->second);
+            ((GlobalMemoryBlock<ElemType>*)(gradientIt->second))->releaseMemory();
             gradientGlobalMemoryBlockMap.erase(gradientIt);
         }
     }
@@ -3269,23 +3276,11 @@ public:
     virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
     {
         Base::RequestMatricesBeforeForwardProp(matrixPool);
-
-        if (0 == m_segmentIndex)
-        {
-            RequestMatrixFromPool(m_valueGlobalMemoryMatrix, matrixPool, m_memoryLength, true);
-            RequestMatrixFromPool(m_gradientGlobalMemoryMatrix, matrixPool, m_memoryLength, true);
-        }
     }
 
     virtual void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool)
     {
         Base::ReleaseMatricesAfterBackprop(matrixPool);
-
-        if (0 == m_segmentIndex)
-        {
-            ReleaseMatrixToPool(m_valueGlobalMemoryMatrix, matrixPool);
-            ReleaseMatrixToPool(m_gradientGlobalMemoryMatrix, matrixPool);
-        }
     }
 
     void Save(File& fstream) const override
@@ -3305,9 +3300,6 @@ public:
     size_t m_segmentIndex;
     size_t m_startIndex;
     size_t m_numRows;
-
-    shared_ptr<Matrix<ElemType>> m_valueGlobalMemoryMatrix;
-    shared_ptr<Matrix<ElemType>> m_gradientGlobalMemoryMatrix;
 };
 #pragma endregion
 
@@ -3692,12 +3684,12 @@ public:
 
 
                 GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
-                m_tempSegment->Resize(inputNode->m_startIndex + inputNode->m_numRows, Gradient().GetNumCols());
+                auto tempSegment = Matrix<ElemType>(inputNode->m_startIndex + inputNode->m_numRows, Gradient().GetNumCols(), m_deviceId);
                 map<wstring, void*>::iterator it = valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName);
                 if (it == valueGlobalMemoryBlockMap.end())
                     LogicError("Global memory block not found in BatchNormalization.");
                 GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(it->second);
-                globalMemoryBlockPtr->getSegmentMatrix(*m_tempSegment, 0, inputNode->m_startIndex + inputNode->m_numRows);
+                globalMemoryBlockPtr->getSegmentMatrix(tempSegment, 0, inputNode->m_startIndex + inputNode->m_numRows);
 
 
                 const Matrix<ElemType>& scale = Input(SCALE)->Value();
@@ -3710,7 +3702,7 @@ public:
                 if (needsInputGradient && m_gradientValid) // because otherwise we already computed it into the dummy location
                     LogicError("BackpropTo: Batch-normalization data gradient must be requested before all others.");
                 if (!needsInputGradient)
-                    m_dDataDummy->Resize(*m_tempSegment);
+                    m_dDataDummy->Resize(tempSegment);
                 auto sliceInputGrad = needsInputGradient ? Input(DATA)->GradientFor(fr) : m_dDataDummy->AsReference();
 
                 m_dScale->Resize(scale); // gradients for scale and bias get stored here
@@ -3720,7 +3712,7 @@ public:
 
                                                             // Compute all derivatives in one step. Save derivatives with respect to scale and bias in temp matrices.
                                                             // TODO: Move this out. Follow the same pattern as the RNN node. But can't without requiring another buffer.
-                m_bnEng->Backward(*m_tempSegment, sliceOutputGrad, // (in)  input from below, gradient from above
+                m_bnEng->Backward(tempSegment, sliceOutputGrad, // (in)  input from below, gradient from above
                     sliceInputGrad,                   // (out) gradient for data input goes here  --TODO: Check if cudnn engine adds the gradient, or just overwrites (BUGBUG). CNTK engine is OK.
                     scale,                            // (in)  out of scale and bias, only scale is needed in gradient propagation
                     blendFactor,                      // (in)  smoothing weight for running stats (1=use only running stats)
@@ -3804,6 +3796,9 @@ public:
 
     void Validate(bool isFinalValidationPass) override
     {
+        if (Input(DATA)->OperationName() == L"GlobalConcat")
+            m_connectGlobalConcat = true;
+
         Base::Validate(isFinalValidationPass);
 
         if (GetNumInputs() != RUN_COUNT && GetNumInputs() != RUN_COUNT + 1)
@@ -3948,12 +3943,6 @@ public:
         RequestMatrixFromPool(m_dDataDummy, matrixPool);
         RequestMatrixFromPool(m_dScale, matrixPool);
         RequestMatrixFromPool(m_dBias, matrixPool);
-
-        if (Input(DATA)->OperationName() == L"GlobalConcat")
-        {
-            m_connectGlobalConcat = true;
-            RequestMatrixFromPool(m_tempSegment, matrixPool);
-        }
     }
 
     void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool) override
@@ -3964,9 +3953,6 @@ public:
         ReleaseMatrixToPool(m_dDataDummy, matrixPool);
         ReleaseMatrixToPool(m_dScale, matrixPool);
         ReleaseMatrixToPool(m_dBias, matrixPool);
-
-        if (m_connectGlobalConcat)
-            ReleaseMatrixToPool(m_tempSegment, matrixPool);
     }
 
     void SetNormalizationTimeConstants(double normalizationTimeConstant, double prevNormalizationTimeConstant,
@@ -4087,7 +4073,6 @@ private:
     shared_ptr<Matrix<ElemType>> m_dDataDummy;
     shared_ptr<Matrix<ElemType>> m_dScale;
     shared_ptr<Matrix<ElemType>> m_dBias;
-    shared_ptr<Matrix<ElemType>> m_tempSegment;
 
     bool m_gradientValid = false;
     bool m_connectGlobalConcat = false;
