@@ -3219,12 +3219,12 @@ public:
         if (0 == m_segmentIndex)
         {
             map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
-            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
             ((GlobalMemoryBlock<ElemType>*)(valueIt->second))->releaseMemory();
+            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
             valueGlobalMemoryBlockMap.erase(valueIt);
             map<wstring, void*>::iterator gradientIt = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
-            delete (GlobalMemoryBlock<ElemType>*)(gradientIt->second);
             ((GlobalMemoryBlock<ElemType>*)(gradientIt->second))->releaseMemory();
+            delete (GlobalMemoryBlock<ElemType>*)(gradientIt->second);
             gradientGlobalMemoryBlockMap.erase(gradientIt);
         }
     }
