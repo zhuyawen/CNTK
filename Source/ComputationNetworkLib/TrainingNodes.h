@@ -3670,7 +3670,7 @@ public:
         m_gradientValid = false;
 
         GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
-        if (!Environment().IsTraining() && inputNode->m_startIndex + inputNode->m_numRows == inputNode->m_memoryLength)
+        if (!Environment().IsTraining() && m_connectGlobalConcat && inputNode->m_startIndex + inputNode->m_numRows == inputNode->m_memoryLength)
         {
             map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName);
             ((GlobalMemoryBlock<ElemType>*)(valueIt->second))->releaseMemory();
