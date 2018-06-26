@@ -3196,8 +3196,11 @@ public:
             size_t minibatchSize = InputRef(0).Value().GetNumCols();
             GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_deviceId);
             valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
-            GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_deviceId, true);
-            gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
+            if (Environment().IsTraining())
+            {
+                GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_deviceId, true);
+                gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
+            }
         }
     }
 
@@ -3252,13 +3255,12 @@ public:
         Base::Validate(isFinalValidationPass);
         InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
 
-        if (!m_validateFlag)
+        if (0 == m_dims.size())
         {
             m_dims = Input(0)->GetSampleLayout().GetDims();
             if (m_segmentIndex != 0)
                 m_dims[2] += validateCounter[m_memoryBlockName];
             validateCounter[m_memoryBlockName] = m_dims[2];
-            m_validateFlag = true;
         }
 
         SetDims(TensorShape(m_dims), HasMBLayout());
@@ -3291,13 +3293,13 @@ public:
     void Save(File& fstream) const override
     {
         Base::Save(fstream);
-        fstream << m_memoryBlockName << m_memoryLength << m_startIndex << m_numRows << m_segmentIndex << m_validateFlag;
+        fstream << m_memoryBlockName << m_memoryLength << m_startIndex << m_numRows << m_segmentIndex;
     }
 
     void Load(File& fstream, size_t modelVersion) override
     {
         Base::Load(fstream, modelVersion);
-        fstream >> m_memoryBlockName >> m_memoryLength >> m_startIndex >> m_numRows >> m_segmentIndex >> m_validateFlag;
+        fstream >> m_memoryBlockName >> m_memoryLength >> m_startIndex >> m_numRows >> m_segmentIndex;
     }
 
     wstring m_memoryBlockName;
@@ -3305,7 +3307,6 @@ public:
     size_t m_segmentIndex;
     size_t m_startIndex;
     size_t m_numRows;
-    bool m_validateFlag = false;
     SmallVector<size_t> m_dims;
 };
 #pragma endregion
@@ -3667,6 +3668,15 @@ public:
 
         // gradient is as of now invalid
         m_gradientValid = false;
+
+        GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
+        if (!Environment().IsTraining() && inputNode->m_startIndex + inputNode->m_numRows == inputNode->m_memoryLength)
+        {
+            map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName);
+            ((GlobalMemoryBlock<ElemType>*)(valueIt->second))->releaseMemory();
+            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
+            valueGlobalMemoryBlockMap.erase(valueIt);
+        }
     }
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
