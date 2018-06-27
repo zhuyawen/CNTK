@@ -71,28 +71,28 @@ public:
 
         switch (m_marginCoefficient)
         {
-            case 2:
-            {
-                m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
-                break;
-            }
-            case 3:
-            {
-                m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
-                m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
-                m_sign1->Resize(m_outputDimension, m_minibatchSize);
-                m_sign2->Resize(m_outputDimension, m_minibatchSize);
-                break;
-            }
-            case 4:
-            {
-                m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
-                m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
-                m_cosThetaQuartic->Resize(m_outputDimension, m_minibatchSize);
-                m_sign3->Resize(m_outputDimension, m_minibatchSize);
-                m_sign4->Resize(m_outputDimension, m_minibatchSize);
-                break;
-            }
+        case 2:
+        {
+            m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
+            break;
+        }
+        case 3:
+        {
+            m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
+            m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
+            m_sign1->Resize(m_outputDimension, m_minibatchSize);
+            m_sign2->Resize(m_outputDimension, m_minibatchSize);
+            break;
+        }
+        case 4:
+        {
+            m_cosThetaQuadratic->Resize(m_outputDimension, m_minibatchSize);
+            m_cosThetaCubic->Resize(m_outputDimension, m_minibatchSize);
+            m_cosThetaQuartic->Resize(m_outputDimension, m_minibatchSize);
+            m_sign3->Resize(m_outputDimension, m_minibatchSize);
+            m_sign4->Resize(m_outputDimension, m_minibatchSize);
+            break;
+        }
         }
 
         m_tempMatrix->Resize(m_outputDimension, m_minibatchSize);
@@ -111,28 +111,28 @@ public:
 
             switch (m_marginCoefficient)
             {
-                case 1:
-                    break;
-                case 2:
-                {
-                    Matrix<ElemType>::AsoftmaxBackward2(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
-                        *m_cosTheta, *m_cosThetaQuadratic, *m_sign0);
-                    break;
-                }
-                case 3:
-                {
-                    Matrix<ElemType>::AsoftmaxBackward3(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
-                        *m_cosThetaQuadratic, *m_cosThetaCubic, *m_sign1, *m_sign2);
-                    break;
-                }
-                case 4:
-                {
-                    Matrix<ElemType>::AsoftmaxBackward4(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
-                        *m_cosTheta, *m_cosThetaQuadratic, *m_cosThetaCubic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
-                    break;
-                }
-                default:
-                    LogicError("This marginCoefficient is not supported yet.");
+            case 1:
+                break;
+            case 2:
+            {
+                Matrix<ElemType>::AsoftmaxBackward2(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
+                    *m_cosTheta, *m_cosThetaQuadratic, *m_sign0);
+                break;
+            }
+            case 3:
+            {
+                Matrix<ElemType>::AsoftmaxBackward3(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
+                    *m_cosThetaQuadratic, *m_cosThetaCubic, *m_sign1, *m_sign2);
+                break;
+            }
+            case 4:
+            {
+                Matrix<ElemType>::AsoftmaxBackward4(m_lambda, m_inputDimension, m_outputDimension, *m_label, Gradient(), X_gradient, *m_inputMagnitude, X, weight,
+                    *m_cosTheta, *m_cosThetaQuadratic, *m_cosThetaCubic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
+                break;
+            }
+            default:
+                LogicError("This marginCoefficient is not supported yet.");
             }
         }
         else if (2 == inputIndex)
@@ -164,57 +164,57 @@ public:
 
         switch (m_marginCoefficient)
         {
-            case 1:
-                break;
-            case 2:
-            {
-                Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
-                break;
-            }
-            case 3:
-            {
-                Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
-                Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
+        case 1:
+            break;
+        case 2:
+        {
+            Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
+            break;
+        }
+        case 3:
+        {
+            Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
+            Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
 
-                // m_sign1 = sign(abs(m_cosTheta) - 0.5) 
-                m_sign1->AssignAbsOf(*m_cosTheta);
-                m_tempMatrix->SetValue(-0.5); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign1);
-                m_sign1->AssignSignOf(*m_sign1);
+            // m_sign1 = sign(abs(m_cosTheta) - 0.5) 
+            m_sign1->AssignAbsOf(*m_cosTheta);
+            m_tempMatrix->SetValue(-0.5); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign1);
+            m_sign1->AssignSignOf(*m_sign1);
 
-                // m_sign2 = m_sign0 * (1 + m_sign1) - 2
-                m_sign2->SetValue(*m_sign1);
-                m_tempMatrix->SetValue(1.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
-                m_sign2->ElementMultiplyWith(*m_sign0);
-                m_tempMatrix->SetValue(-2.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
+            // m_sign2 = m_sign0 * (1 + m_sign1) - 2
+            m_sign2->SetValue(*m_sign1);
+            m_tempMatrix->SetValue(1.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
+            m_sign2->ElementMultiplyWith(*m_sign0);
+            m_tempMatrix->SetValue(-2.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign2);
 
-                break;
-            }
-            case 4:
-            {
-                Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
-                Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
-                Matrix<ElemType>::ElementWisePower(2, *m_cosThetaQuadratic, *m_cosThetaQuartic);
+            break;
+        }
+        case 4:
+        {
+            Matrix<ElemType>::ElementWisePower(2, *m_cosTheta, *m_cosThetaQuadratic);
+            Matrix<ElemType>::ElementWisePower(3, *m_cosTheta, *m_cosThetaCubic);
+            Matrix<ElemType>::ElementWisePower(2, *m_cosThetaQuadratic, *m_cosThetaQuartic);
 
-                // m_sign3 = m_sign0 * sign(2 * m_cosThetaQuadratic - 1)
-                Matrix<ElemType>::Scale(2.0, *m_cosThetaQuadratic, *m_sign3);
-                m_tempMatrix->SetValue(-1.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign3);
-                m_sign3->AssignSignOf(*m_sign3);
-                m_sign3->ElementMultiplyWith(*m_sign0);
+            // m_sign3 = m_sign0 * sign(2 * m_cosThetaQuadratic - 1)
+            Matrix<ElemType>::Scale(2.0, *m_cosThetaQuadratic, *m_sign3);
+            m_tempMatrix->SetValue(-1.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign3);
+            m_sign3->AssignSignOf(*m_sign3);
+            m_sign3->ElementMultiplyWith(*m_sign0);
 
-                // m_sign4 = 2 * m_sign0 + m_sign3 - 3
-                Matrix<ElemType>::Scale(2.0, *m_sign0, *m_sign4);
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_sign3, *m_sign4);
-                m_tempMatrix->SetValue(-3.0); // Only use m_tempMatrix to be a temporary scalar.
-                Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign4);
+            // m_sign4 = 2 * m_sign0 + m_sign3 - 3
+            Matrix<ElemType>::Scale(2.0, *m_sign0, *m_sign4);
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_sign3, *m_sign4);
+            m_tempMatrix->SetValue(-3.0); // Only use m_tempMatrix to be a temporary scalar.
+            Matrix<ElemType>::ScaleAndAdd(1.0, *m_tempMatrix, *m_sign4);
 
-                break;
-            }
-            default:
-                LogicError("This marginCoefficient is not supported yet.");
+            break;
+        }
+        default:
+            LogicError("This marginCoefficient is not supported yet.");
         }
 
         Matrix<ElemType>::Multiply(weight, false, X, false, Value());
@@ -227,28 +227,28 @@ public:
 
             switch (m_marginCoefficient)
             {
-                case 1:
-                    break;
-                case 2:
-                {
-                    Matrix<ElemType>::AsoftmaxForward2(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                        *m_cosThetaQuadratic, *m_sign0);
-                    break;
-                }
-                case 3:
-                {
-                    Matrix<ElemType>::AsoftmaxForward3(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                        *m_cosTheta, *m_cosThetaCubic, *m_sign1, *m_sign2);
-                    break;
-                }
-                case 4:
-                {
-                    Matrix<ElemType>::AsoftmaxForward4(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
-                        *m_cosThetaQuadratic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
-                    break;
-                }
-                default:
-                    LogicError("This marginCoefficient is not supported yet.");
+            case 1:
+                break;
+            case 2:
+            {
+                Matrix<ElemType>::AsoftmaxForward2(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                    *m_cosThetaQuadratic, *m_sign0);
+                break;
+            }
+            case 3:
+            {
+                Matrix<ElemType>::AsoftmaxForward3(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                    *m_cosTheta, *m_cosThetaCubic, *m_sign1, *m_sign2);
+                break;
+            }
+            case 4:
+            {
+                Matrix<ElemType>::AsoftmaxForward4(m_lambda, m_minibatchSize, m_outputDimension, *m_label, Value(), *m_inputMagnitude,
+                    *m_cosThetaQuadratic, *m_cosThetaQuartic, *m_sign3, *m_sign4);
+                break;
+            }
+            default:
+                LogicError("This marginCoefficient is not supported yet.");
             }
         }
     }
@@ -283,29 +283,29 @@ public:
 
             switch (m_marginCoefficient)
             {
-                case 2:
-                {
-                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
-                    node->m_sign0->SetValue(*m_sign0);
-                    break;
-                }
-                case 3:
-                {
-                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
-                    node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
-                    node->m_sign1->SetValue(*m_sign1);
-                    node->m_sign2->SetValue(*m_sign2);
-                    break;
-                }
-                case 4:
-                {
-                    node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
-                    node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
-                    node->m_cosThetaQuartic->SetValue(*m_cosThetaQuartic);
-                    node->m_sign3->SetValue(*m_sign3);
-                    node->m_sign4->SetValue(*m_sign4);
-                    break;
-                }
+            case 2:
+            {
+                node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                node->m_sign0->SetValue(*m_sign0);
+                break;
+            }
+            case 3:
+            {
+                node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
+                node->m_sign1->SetValue(*m_sign1);
+                node->m_sign2->SetValue(*m_sign2);
+                break;
+            }
+            case 4:
+            {
+                node->m_cosThetaQuadratic->SetValue(*m_cosThetaQuadratic);
+                node->m_cosThetaCubic->SetValue(*m_cosThetaCubic);
+                node->m_cosThetaQuartic->SetValue(*m_cosThetaQuartic);
+                node->m_sign3->SetValue(*m_sign3);
+                node->m_sign4->SetValue(*m_sign4);
+                break;
+            }
             }
 
             node->m_tempMatrix->SetValue(*m_tempMatrix);
@@ -3087,20 +3087,20 @@ private:
     GlobalMemoryBlock
     Layout : Matrix<ElemType>(memoryLength, minibatchSize)
     Memory : GlobalMemoryBlock will be allocated/released by the first trainingNodes (Segment 0).
-                        minibatchSize
-                 ---------------------------
-                 |        Segment 0        |       Value/Gradient matrix 0
-                 ---------------------------
-                 |        Segment 1        |       Value/Gradient matrix 1
-                 ---------------------------
-                 |           .             |
-    memoryLength |           .             |
-                 |           .             |
-                 ---------------------------
-                 |        Segment n-2      |       Value/Gradient matrix n - 2
-                 ---------------------------
-                 |        Segment n-1      |       Value/Gradient matrix n - 1
-                 ---------------------------
+               minibatchSize
+        ---------------------------
+        |        Segment 0        |       Value/Gradient matrix 0
+        ---------------------------
+        |        Segment 1        |       Value/Gradient matrix 1
+        ---------------------------
+        |           .             |
+        memoryLength |           .             |
+        |           .             |
+        ---------------------------
+        |        Segment n-2      |       Value/Gradient matrix n - 2
+        ---------------------------
+        |        Segment n-1      |       Value/Gradient matrix n - 1
+        ---------------------------
 */
 template <class ElemType>
 class GlobalMemoryBlock
@@ -3108,10 +3108,10 @@ class GlobalMemoryBlock
 public:
     GlobalMemoryBlock() {}
 
-    GlobalMemoryBlock(size_t _memoryLength, size_t _minibatchSize, DEVICEID_TYPE deviceId, bool needInit = false)
-        : memoryLength(_memoryLength), minibatchSize(_minibatchSize), index(0)
+    GlobalMemoryBlock(size_t _memoryLength, size_t _minibatchSize, shared_ptr<Matrix<ElemType>> _globalMemoryMatrix, bool needInit = false)
+        : memoryLength(_memoryLength), minibatchSize(_minibatchSize), globalMemoryMatrix(_globalMemoryMatrix), index(0)
     {
-        globalMemoryMatrix = new Matrix<ElemType>(memoryLength, minibatchSize, deviceId);
+        globalMemoryMatrix->Resize(memoryLength, minibatchSize);
         if (needInit)
             globalMemoryMatrix->SetValue((ElemType)0);
     }
@@ -3150,15 +3150,10 @@ public:
         return index;
     }
 
-    void releaseMemory()
-    {
-        delete globalMemoryMatrix;
-    }
-
     size_t memoryLength; // row
     size_t minibatchSize; // col
     size_t index;
-    Matrix<ElemType>* globalMemoryMatrix;
+    shared_ptr<Matrix<ElemType>>globalMemoryMatrix;
 };
 
 static std::map<wstring, void*>valueGlobalMemoryBlockMap = std::map<wstring, void*>();
@@ -3191,42 +3186,22 @@ public:
 
     virtual void UpdateFunctionMBSize() override
     {
-        if (0 == m_segmentIndex)
-        {
-            size_t minibatchSize = InputRef(0).Value().GetNumCols();
-            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_deviceId);
-            valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
-            if (Environment().IsTraining())
-            {
-                GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, minibatchSize, m_deviceId, true);
-                gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
-            }
-        }
     }
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
-        map<wstring, void*>::iterator it = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
-        if (it == gradientGlobalMemoryBlockMap.end())
-            LogicError("Global memory block not found in BackpropToNonLooping.");
-        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(it->second);
-
+        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(gradientGlobalMemoryBlockMap.find(m_memoryBlockName)->second);
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X_gradient = InputRef(0).GradientFor(fr);
-        size_t numRows = Gradient().GetNumRows();
-        if (m_startIndex + m_numRows != numRows)
-            LogicError("Unmatched numRows in BackpropToNonLooping.");
-        globalMemoryBlockPtr->addSegmentMatrix(Gradient(), numRows);
+        globalMemoryBlockPtr->addSegmentMatrix(Gradient(), Gradient().GetNumRows());
         globalMemoryBlockPtr->getSegmentMatrix(X_gradient, m_startIndex, m_numRows);
 
         if (0 == m_segmentIndex)
         {
             map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
-            ((GlobalMemoryBlock<ElemType>*)(valueIt->second))->releaseMemory();
             delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
             valueGlobalMemoryBlockMap.erase(valueIt);
             map<wstring, void*>::iterator gradientIt = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
-            ((GlobalMemoryBlock<ElemType>*)(gradientIt->second))->releaseMemory();
             delete (GlobalMemoryBlock<ElemType>*)(gradientIt->second);
             gradientGlobalMemoryBlockMap.erase(gradientIt);
         }
@@ -3234,17 +3209,29 @@ public:
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
     {
-        map<wstring, void*>::iterator it = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
-        if (it == valueGlobalMemoryBlockMap.end())
-            LogicError("Global memory block not found in ForwardPropNonLooping.");
-        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(it->second);
+        if (0 == m_segmentIndex)
+        {
+            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, InputRef(0).Value().GetNumCols(), m_valueGlobalMemoryMatrix);
+            valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
+            if (Environment().IsTraining())
+            {
+                GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, InputRef(0).Value().GetNumCols(), m_gradientGlobalMemoryMatrix, true);
+                gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
+            }
+        }
 
+        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(valueGlobalMemoryBlockMap.find(m_memoryBlockName)->second);
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X = InputRef(0).ValueFor(fr);
-        m_startIndex = globalMemoryBlockPtr->getIndex();
-        m_numRows = X.GetNumRows();
         globalMemoryBlockPtr->stackSegmentMatrix(X, m_numRows);
         globalMemoryBlockPtr->getSegmentMatrix(Value(), 0, globalMemoryBlockPtr->getIndex());
+
+        if (m_startIndex + m_numRows == m_memoryLength && !Environment().IsTraining())
+        {
+            map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
+            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
+            valueGlobalMemoryBlockMap.erase(valueIt);
+        }
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return false; }
@@ -3258,8 +3245,14 @@ public:
         if (0 == m_dims.size())
         {
             m_dims = Input(0)->GetSampleLayout().GetDims();
+            m_numRows = m_dims[0] * m_dims[1] * m_dims[2];
             if (m_segmentIndex != 0)
+            {
+                m_startIndex = m_dims[0] * m_dims[1] * validateCounter[m_memoryBlockName];
                 m_dims[2] += validateCounter[m_memoryBlockName];
+            }
+            else
+                m_startIndex = 0;
             validateCounter[m_memoryBlockName] = m_dims[2];
         }
 
@@ -3283,11 +3276,23 @@ public:
     virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
     {
         Base::RequestMatricesBeforeForwardProp(matrixPool);
+
+        if (0 == m_segmentIndex)
+        {
+            RequestMatrixFromPool(m_valueGlobalMemoryMatrix, matrixPool, m_memoryLength, true, false, false);
+            RequestMatrixFromPool(m_gradientGlobalMemoryMatrix, matrixPool, m_memoryLength, true, false, false);
+        }
     }
 
     virtual void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool)
     {
         Base::ReleaseMatricesAfterBackprop(matrixPool);
+
+        if (0 == m_segmentIndex)
+        {
+            ReleaseMatrixToPool(m_valueGlobalMemoryMatrix, matrixPool);
+            ReleaseMatrixToPool(m_gradientGlobalMemoryMatrix, matrixPool);
+        }
     }
 
     void Save(File& fstream) const override
@@ -3308,6 +3313,9 @@ public:
     size_t m_startIndex;
     size_t m_numRows;
     SmallVector<size_t> m_dims;
+
+    shared_ptr<Matrix<ElemType>> m_valueGlobalMemoryMatrix;
+    shared_ptr<Matrix<ElemType>> m_gradientGlobalMemoryMatrix;
 };
 #pragma endregion
 
@@ -3366,15 +3374,15 @@ class BatchNormalizationNode : public ComputationNodeNonLooping<ElemType>, publi
 
     // inputs
     // TODO: Change all of these throughout the codebase to 'class enum'. Also change all places where we still use integer constants.
-    static const size_t DATA      = 0;
-    static const size_t SCALE     = 1;
-    static const size_t BIAS      = 2;
-    static const size_t RUN_MEAN  = 3;
-    static const size_t RUN_VAR   = 4;
+    static const size_t DATA = 0;
+    static const size_t SCALE = 1;
+    static const size_t BIAS = 2;
+    static const size_t RUN_MEAN = 3;
+    static const size_t RUN_VAR = 4;
     static const size_t RUN_COUNT = 5; // note: no such parameter for legacy V1 models that do not share the count correctly
 public:
     BatchNormalizationNode(DEVICEID_TYPE deviceId, const wstring& name, bool spatial = false,
-        double normalizationTimeConstant=0, double blendTimeConstant=0,
+        double normalizationTimeConstant = 0, double blendTimeConstant = 0,
         double epsilon = 0, bool useCntkEngine = true, bool disableRegularization = false, ImageLayoutKind imageLayoutKind = ImageLayoutKind::CHW) :
         Base(deviceId, name), m_spatial(spatial), m_normTimeConst(normalizationTimeConstant), m_blendTimeConst(blendTimeConstant),
         m_epsilon(epsilon), m_useCntkEngine(useCntkEngine), m_disableRegularization(disableRegularization), m_imageLayoutKind(imageLayoutKind),
@@ -3508,13 +3516,13 @@ public:
             auto node = dynamic_pointer_cast<BatchNormalizationNode<ElemType>>(nodeP);
             assert(node != nullptr);
 
-            node->m_spatial               = m_spatial;
-            node->m_normTimeConst         = m_normTimeConst;
-            node->m_blendTimeConst        = m_blendTimeConst;
-            node->m_imageLayoutKind       = m_imageLayoutKind;
-            node->m_runCountUntied        = m_runCountUntied;
-            node->m_epsilon               = m_epsilon;
-            node->m_useCntkEngine         = m_useCntkEngine;
+            node->m_spatial = m_spatial;
+            node->m_normTimeConst = m_normTimeConst;
+            node->m_blendTimeConst = m_blendTimeConst;
+            node->m_imageLayoutKind = m_imageLayoutKind;
+            node->m_runCountUntied = m_runCountUntied;
+            node->m_epsilon = m_epsilon;
+            node->m_useCntkEngine = m_useCntkEngine;
             node->m_disableRegularization = m_disableRegularization;
         }
     }
@@ -3633,11 +3641,11 @@ public:
             LogicError("%ls: Failed to convert running variance until forward prop", NodeName().c_str());
         FrameRange fr(Input(DATA)->GetMBLayout());
 
-        Matrix<ElemType> sliceInputValue  = Input(DATA)->MaskedValueFor(fr);
-        const Matrix<ElemType>& scale     = Input(SCALE)->Value();
-        const Matrix<ElemType>& bias      = Input(BIAS)->Value();
-        Matrix<ElemType>& runMean         = Input(RUN_MEAN)->Value();
-        Matrix<ElemType>& runVariance     = Input(RUN_VAR)->Value();
+        Matrix<ElemType> sliceInputValue = Input(DATA)->MaskedValueFor(fr);
+        const Matrix<ElemType>& scale = Input(SCALE)->Value();
+        const Matrix<ElemType>& bias = Input(BIAS)->Value();
+        Matrix<ElemType>& runMean = Input(RUN_MEAN)->Value();
+        Matrix<ElemType>& runVariance = Input(RUN_VAR)->Value();
         Matrix<ElemType> sliceOutputValue = ValueFor(fr);
 
         assert(scale.GetNumRows() == bias.GetNumRows());
@@ -3649,7 +3657,7 @@ public:
 
         // determine the factors from the time constants
         double expAvgFactor = ComputeExpAvgFactor(); // weight for the new MB statistics in the running estimate. The previous value of the running statistics is kept with weight (1-this)
-        double blendFactor  = ComputeBlendFactor();  // interpolation weight for the running statistics (the current MB statistics are weighted with 1-this)
+        double blendFactor = ComputeBlendFactor();  // interpolation weight for the running statistics (the current MB statistics are weighted with 1-this)
 
                                                     // In inference-only mode, m_savedMean and m_saveInvStdDev will not be
                                                     // produced and BackpropToNonLooping() may not be called. In
@@ -3668,15 +3676,6 @@ public:
 
         // gradient is as of now invalid
         m_gradientValid = false;
-
-        GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
-        if (!Environment().IsTraining() && m_connectGlobalConcat && inputNode->m_startIndex + inputNode->m_numRows == inputNode->m_memoryLength)
-        {
-            map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName);
-            ((GlobalMemoryBlock<ElemType>*)(valueIt->second))->releaseMemory();
-            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
-            valueGlobalMemoryBlockMap.erase(valueIt);
-        }
     }
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
@@ -3701,12 +3700,9 @@ public:
 
 
                 GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
-                auto tempSegment = Matrix<ElemType>(inputNode->m_startIndex + inputNode->m_numRows, Gradient().GetNumCols(), m_deviceId);
-                map<wstring, void*>::iterator it = valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName);
-                if (it == valueGlobalMemoryBlockMap.end())
-                    LogicError("Global memory block not found in BatchNormalization.");
-                GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(it->second);
-                globalMemoryBlockPtr->getSegmentMatrix(tempSegment, 0, inputNode->m_startIndex + inputNode->m_numRows);
+                m_tempSegment->Resize(inputNode->m_startIndex + inputNode->m_numRows, Gradient().GetNumCols());
+                GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName)->second);
+                globalMemoryBlockPtr->getSegmentMatrix(*m_tempSegment, 0, inputNode->m_startIndex + inputNode->m_numRows);
 
 
                 const Matrix<ElemType>& scale = Input(SCALE)->Value();
@@ -3719,7 +3715,7 @@ public:
                 if (needsInputGradient && m_gradientValid) // because otherwise we already computed it into the dummy location
                     LogicError("BackpropTo: Batch-normalization data gradient must be requested before all others.");
                 if (!needsInputGradient)
-                    m_dDataDummy->Resize(tempSegment);
+                    m_dDataDummy->Resize(*m_tempSegment);
                 auto sliceInputGrad = needsInputGradient ? Input(DATA)->GradientFor(fr) : m_dDataDummy->AsReference();
 
                 m_dScale->Resize(scale); // gradients for scale and bias get stored here
@@ -3729,7 +3725,7 @@ public:
 
                                                             // Compute all derivatives in one step. Save derivatives with respect to scale and bias in temp matrices.
                                                             // TODO: Move this out. Follow the same pattern as the RNN node. But can't without requiring another buffer.
-                m_bnEng->Backward(tempSegment, sliceOutputGrad, // (in)  input from below, gradient from above
+                m_bnEng->Backward(*m_tempSegment, sliceOutputGrad, // (in)  input from below, gradient from above
                     sliceInputGrad,                   // (out) gradient for data input goes here  --TODO: Check if cudnn engine adds the gradient, or just overwrites (BUGBUG). CNTK engine is OK.
                     scale,                            // (in)  out of scale and bias, only scale is needed in gradient propagation
                     blendFactor,                      // (in)  smoothing weight for running stats (1=use only running stats)
@@ -3742,7 +3738,7 @@ public:
                 auto sliceOutputGrad = MaskedGradientFor(fr);
                 auto sliceInputValue = Input(DATA)->ValueFor(fr);
                 const Matrix<ElemType>& scale = Input(SCALE)->Value();
-                const Matrix<ElemType>& bias  = Input(BIAS)->Value();
+                const Matrix<ElemType>& bias = Input(BIAS)->Value();
 
                 // If inputIndex is not DATA and we get here, then it means that DATA receives no gradient.
                 // However, the underlying engine does not foresee this case, and thus always needs a place
@@ -3960,6 +3956,12 @@ public:
         RequestMatrixFromPool(m_dDataDummy, matrixPool);
         RequestMatrixFromPool(m_dScale, matrixPool);
         RequestMatrixFromPool(m_dBias, matrixPool);
+
+        if (m_connectGlobalConcat)
+        {
+            GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
+            RequestMatrixFromPool(m_tempSegment, matrixPool, inputNode->m_startIndex + inputNode->m_numRows, true, false, false);
+        }
     }
 
     void ReleaseMatricesAfterBackprop(MatrixPool& matrixPool) override
@@ -3970,6 +3972,9 @@ public:
         ReleaseMatrixToPool(m_dDataDummy, matrixPool);
         ReleaseMatrixToPool(m_dScale, matrixPool);
         ReleaseMatrixToPool(m_dBias, matrixPool);
+
+        if (m_connectGlobalConcat)
+            ReleaseMatrixToPool(m_tempSegment, matrixPool);
     }
 
     void SetNormalizationTimeConstants(double normalizationTimeConstant, double prevNormalizationTimeConstant,
@@ -4090,6 +4095,7 @@ private:
     shared_ptr<Matrix<ElemType>> m_dDataDummy;
     shared_ptr<Matrix<ElemType>> m_dScale;
     shared_ptr<Matrix<ElemType>> m_dBias;
+    shared_ptr<Matrix<ElemType>> m_tempSegment;
 
     bool m_gradientValid = false;
     bool m_connectGlobalConcat = false;
