@@ -531,14 +531,14 @@ public:
     virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
     {
         Base::RequestMatricesBeforeForwardProp(matrixPool);
-        RequestMatrixFromPool(m_magnitude, matrixPool);
-        RequestMatrixFromPool(m_temp1, matrixPool);
+        RequestMatrixFromPool(m_magnitude, matrixPool, 1, true, false, false);
+        RequestMatrixFromPool(m_temp1, matrixPool, 1 ,true, false, false);
     }
 
     void RequestMatricesBeforeBackprop(MatrixPool& matrixPool) override
     {
         Base::RequestMatricesBeforeBackprop(matrixPool);
-        RequestMatrixFromPool(m_temp2, matrixPool);
+        RequestMatrixFromPool(m_temp2, matrixPool, m_inputDimension, true, false, false);
     }
 
     // release gradient and temp matrices that no longer needed after all the children's gradients are computed.
@@ -699,8 +699,8 @@ public:
     virtual void RequestMatricesBeforeForwardProp(MatrixPool& matrixPool)
     {
         Base::RequestMatricesBeforeForwardProp(matrixPool);
-        RequestMatrixFromPool(m_label, matrixPool);
-        RequestMatrixFromPool(m_labelValue, matrixPool);
+        RequestMatrixFromPool(m_label, matrixPool, 1, true, false, false);
+        RequestMatrixFromPool(m_labelValue, matrixPool, 1, true, false, false);
         if (m_weightNormalize)
             RequestMatrixFromPool(m_weightMagnitude, matrixPool);
     }
