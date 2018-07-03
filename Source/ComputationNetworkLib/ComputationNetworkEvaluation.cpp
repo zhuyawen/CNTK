@@ -17,7 +17,7 @@
 #include <set>
 #include <algorithm>
 #include <map>
-
+#include "ProgressTracing.h"
 using namespace std;
 
 namespace Microsoft { namespace MSR { namespace CNTK {
@@ -140,10 +140,26 @@ ComputationNetwork::PARTraversalFlowControlNode::PARTraversalFlowControlNode(con
         }
     }
 }
+
+static map<void*, clock_t>forwardNodeCnt;
+static map<void*, clock_t>backwardNodeCnt;
+static map<void*, clock_t>forwardNodeTime;
+static map<void*, clock_t>backwardNodeTime;
+
 /*static*/ void ComputationNetwork::PARTraversalFlowControlNode::ForwardProp(const ComputationNodeBasePtr& node, const FrameRange& fr)
 {
     if (node->IsOutOfDateWrtInputs())
     {
+        void* ptr = node.get();
+        if (forwardNodeTime.find(ptr) == forwardNodeTime.end())
+        {
+            forwardNodeTime[ptr] = 0;
+            forwardNodeCnt[ptr] = 1;
+        }
+        else
+            ++forwardNodeCnt[ptr];
+        clock_t t1 = clock();
+
         node->BeginForwardProp();
         node->ForwardProp(fr.WithLayout(node->GetMBLayout()));
         node->EndForwardProp();
@@ -153,6 +169,15 @@ ComputationNetwork::PARTraversalFlowControlNode::PARTraversalFlowControlNode(con
         // Extreme Tracing, part 1/4
         if (node->HasEnvironmentPtr() && node->Environment().ShouldDumpNode())
             DumpNode<float>(node, /*dumpGradient=*/false) || DumpNode<double>(node, false);
+
+        clock_t t2 = clock();
+        forwardNodeTime[ptr] += t2 - t1;
+
+        if (forwardNodeCnt[ptr] % 100 == 0)
+        {
+            fprintf(stderr, "%ls : forward time = %.8gs\n", node->NodeName().c_str(), (double)forwardNodeTime[ptr] / 1000);
+            forwardNodeTime[ptr] = 0;
+        }
     }
 }
 
@@ -182,6 +207,16 @@ ComputationNetwork::PARTraversalFlowControlNode::PARTraversalFlowControlNode(con
     {
         auto& node = *pnode;
 
+        void* ptr = node.get();
+        if (backwardNodeTime.find(ptr) == backwardNodeTime.end())
+        {
+            backwardNodeTime[ptr] = 0;
+            backwardNodeCnt[ptr] = 1;
+        }
+        else
+            ++backwardNodeCnt[ptr];
+        clock_t t1 = clock();
+
         node->BeginBackprop();
         node->Backprop(fr.WithLayout(node->GetMBLayout()), true /*childrenInThisLoop*/, true /*childrenInOuterLoop*/);
         node->EndBackprop();
@@ -189,6 +224,15 @@ ComputationNetwork::PARTraversalFlowControlNode::PARTraversalFlowControlNode(con
         // Extreme Tracing, part 2/4
         if (node->HasEnvironmentPtr() && node->Environment().ShouldDumpNode() && node->NeedsGradient())
             DumpNode<float>(node, /*dumpGradient=*/true) || DumpNode<double>(node, true);
+
+        clock_t t2 = clock();
+        backwardNodeTime[ptr] += t2 - t1;
+
+        if (backwardNodeCnt[ptr] % 100 == 0)
+        {
+            fprintf(stderr, "%ls : backward time = %.8gs\n", node->NodeName().c_str(), (double)backwardNodeTime[ptr] / 1000);
+            backwardNodeTime[ptr] = 0;
+        }
     }
 }
 /*virtual*/ void ComputationNetwork::PARTraversalFlowControlNode::RequestMatricesBeforeForwardProp(MatrixPool& matrixPool) /*override*/

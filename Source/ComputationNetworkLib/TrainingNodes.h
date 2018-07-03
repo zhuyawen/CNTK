@@ -20,6 +20,8 @@
 #include <list>
 #include <memory>
 #include <random>
+#include <ctime>
+#include "ProgressTracing.h"
 using namespace std;
 
 namespace Microsoft { namespace MSR { namespace CNTK {
@@ -454,7 +456,6 @@ public:
 
     virtual void UpdateFunctionMBSize() override
     {
-        m_inputDimension = InputRef(0).Value().GetNumRows();
         m_minibatchSize = InputRef(0).Value().GetNumCols();
         m_magnitude->Resize(1, m_minibatchSize);
         m_temp1->Resize(1, m_minibatchSize);
@@ -463,6 +464,8 @@ public:
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
+        ++m_backwardCnt;
+        clock_t t1 = clock();
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X = InputRef(0).ValueFor(fr);
         auto X_gradient = InputRef(0).GradientFor(fr);
@@ -486,10 +489,17 @@ public:
         m_temp2->SetValue(Gradient());
         m_temp2->RowElementDivideBy(*m_magnitude);
         Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp2, X_gradient);
+
+        clock_t t2 = clock();
+        m_backwardTime = t2 - t1;
+        if (m_backwardCnt % 200 == 0)
+            fprintf(stderr, "FeatureNormalizeNode : forward time = %.8gs\n", (double)m_backwardTime / 1000);
     }
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
     {
+        ++m_forwardCnt;
+        clock_t t1 = clock();
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X = InputRef(0).ValueFor(fr);
 
@@ -504,6 +514,11 @@ public:
         Matrix<ElemType>::ScaleAndAdd((ElemType)1, *m_temp1, *m_magnitude);
         Value().SetValue(X);
         Value().RowElementDivideBy(*m_magnitude);
+
+        clock_t t2 = clock();
+        m_forwardTime = t2 - t1;
+        if (m_forwardCnt % 100 == 0)
+            fprintf(stderr, "FeatureNormalizeNode : forward time = %.8gs\n", (double)m_forwardTime / 1000);
     }
 
     virtual bool OutputUsedInComputingInputNodesGradients() const override { return true; }
@@ -511,6 +526,11 @@ public:
 
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
+        auto dims = Input(0)->GetSampleLayout().GetDims();
+        m_inputDimension = 1;
+        for (size_t i(0); i < dims.size(); ++i)
+            m_inputDimension *= dims[i];
+
         ValidateUnaryMap(isFinalValidationPass);
     }
 
@@ -571,6 +591,11 @@ private:
     shared_ptr<Matrix<ElemType>> m_magnitude; // Matrix(1, m)
     shared_ptr<Matrix<ElemType>> m_temp1; // Matrix(1, m)
     shared_ptr<Matrix<ElemType>> m_temp2; // Matrix(n, m)
+
+    size_t m_forwardCnt = 0;
+    size_t m_backwardCnt = 0;
+    clock_t m_forwardTime = 0;
+    clock_t m_backwardTime = 0;
 };
 
 template <class ElemType>
@@ -668,8 +693,14 @@ public:
     virtual void /*ComputationNodeBase::*/ Validate(bool isFinalValidationPass) override
     {
         Base::Validate(isFinalValidationPass);
-
         InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
+
+        LOGPRINTF(stderr, "InputRef(2).Value().GetNumRows() = %d\n", (int)(InputRef(2).Value().GetNumRows()));
+        cout << "InputRef(2).Value().GetNumRows() = " << InputRef(2).Value().GetNumRows() << endl;
+        ofstream outFile("FC.txt");
+        outFile << "InputRef(2).Value().GetNumRows() = " << InputRef(2).Value().GetNumRows() << endl;
+        outFile.close();
+
         SetDims(TensorShape(InputRef(2).Value().GetNumRows()), HasMBLayout());
     }
 
@@ -3145,11 +3176,6 @@ public:
         globalMemoryMatrix->AddToRowSliceValuesOf(segmentMatrix, 0, numRows);
     }
 
-    size_t getIndex()
-    {
-        return index;
-    }
-
     size_t memoryLength; // row
     size_t minibatchSize; // col
     size_t index;
@@ -3181,10 +3207,6 @@ public:
 
     GlobalConcatNode(DEVICEID_TYPE deviceId, const wstring& name, wstring memoryBlockName = L"", size_t memoryLength = 0, size_t segmentIndex = 0)
         : Base(deviceId, name), m_memoryBlockName(memoryBlockName), m_memoryLength(memoryLength), m_segmentIndex(segmentIndex)
-    {
-    }
-
-    virtual void UpdateFunctionMBSize() override
     {
     }
 
@@ -3224,7 +3246,7 @@ public:
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X = InputRef(0).ValueFor(fr);
         globalMemoryBlockPtr->stackSegmentMatrix(X, m_numRows);
-        globalMemoryBlockPtr->getSegmentMatrix(Value(), 0, globalMemoryBlockPtr->getIndex());
+        globalMemoryBlockPtr->getSegmentMatrix(Value(), 0, globalMemoryBlockPtr->index);
 
         if (m_startIndex + m_numRows == m_memoryLength && !Environment().IsTraining())
         {
@@ -3318,8 +3340,6 @@ public:
     shared_ptr<Matrix<ElemType>> m_gradientGlobalMemoryMatrix;
 };
 #pragma endregion
-
-
 
 
 // -----------------------------------------------------------------------

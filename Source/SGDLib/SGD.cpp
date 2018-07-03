@@ -507,6 +507,63 @@ void SGD<ElemType>::TrainOrAdaptModel(int startEpoch, ComputationNetworkPtr net,
         tensorBoardWriter = make_shared<::CNTK::Internal::TensorBoardFileWriter>(m_tensorBoardLogDir, net);
     }
 
+
+#ifdef _WIN32
+    FILE* pipeFile1 = _popen("nvidia-smi", "r");
+#else
+    FILE* pipeFile1 = popen("nvidia-smi", "r");
+#endif
+    if (pipeFile1)
+    {
+        fprintf(stderr, "/****SMI****/\n\n");
+        char buffer[256];
+        string ret = "";
+        while (!feof(pipeFile1))
+        {
+            if (fgets(buffer, 256, pipeFile1) != NULL)
+                ret += buffer;
+        }
+#ifdef _WIN32
+        _pclose(pipeFile1);
+#else
+        pclose(pipeFile1);
+#endif
+        fprintf(stderr, "%s\n", ret.c_str());
+        fprintf(stderr, "/****SMI****/\n");
+    }
+    else
+    {
+#ifdef _WIN32
+        _pclose(pipeFile1);
+#else
+        pclose(pipeFile1);
+#endif
+        fprintf(stderr, "SMI : Could not open smi\n");
+    }
+
+#ifndef _WIN32
+    FILE* pipeFile2 = popen("nvidia-smi topo -m", "r");
+    if (pipeFile2)
+    {
+        fprintf(stderr, "/****SMI****/\n\n");
+        char buffer[256];
+        string ret = "";
+        while (!feof(pipeFile2))
+        {
+            if (fgets(buffer, 256, pipeFile2) != NULL)
+                ret += buffer;
+        }
+        pclose(pipeFile2);
+        fprintf(stderr, "%s\n", ret.c_str());
+        fprintf(stderr, "/****SMI****/\n");
+    }
+    else
+    {
+        pclose(pipeFile2);
+        fprintf(stderr, "SMI : Could not open smi\n");
+    }
+#endif
+
     // --- MAIN EPOCH LOOP
     for (int i = startEpoch; i < (int) m_maxEpochs; i++) // TODO: why is this an int, and not a size_t?
     {
@@ -1007,6 +1064,13 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                                     ::CNTK::Internal::TensorBoardFileWriterPtr tensorBoardWriter,
                                     const int startEpoch)
 {
+
+    clock_t forwardTime = 0;
+    clock_t backwardTime = 0;
+    clock_t aggregateTime = 0;
+    clock_t startTime = 0;
+    clock_t endTime = 0;
+
     PROFILE_SCOPE(profilerEvtMainEpoch);
 
     ScopedNetworkOperationMode modeGuard(net, NetworkOperationMode::training);
@@ -1241,6 +1305,15 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                                               dynamic_pointer_cast<ComputationNode<ElemType>>(labelNodes[0])->Value());
             }
 
+            if (m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR == 0 && m_lrapiInfo.iter != 0)
+            {
+                fprintf(stderr, "Iteration %d: forward time = %.8gs\n", (int)m_lrapiInfo.iter, (double)forwardTime / 1000);
+                fprintf(stderr, "Iteration %d: backward time = %.8gs\n", (int)m_lrapiInfo.iter, (double)backwardTime / 1000);
+                fprintf(stderr, "Iteration %d: aggregate time = %.8gs\n", (int)m_lrapiInfo.iter, (double)aggregateTime / 1000);
+                forwardTime = 0;
+                backwardTime = 0;
+                aggregateTime = 0;
+            }
 
             // adjust learning rate by iteration
             if (m_lrapiInfo.adjustType != AdjustType::None)
@@ -1283,13 +1356,19 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
 
                 // compute eval node first since when gradient is computed the forward function values
                 // may be changed and need to be recomputed when gradient and function value share the same matrix
+                startTime = clock();
                 net->ForwardProp(forwardPropRoots); // the bulk of this evaluation is reused in ComputeGradient() below
+                endTime = clock();
+                forwardTime += endTime - startTime;
 
                 // ===========================================================
                 // backprop
                 // ===========================================================
                 //if (learnRatePerSample > 0.01 * m_minLearnRate) // only compute gradient when learning rate is large enough
-                    net->Backprop(criterionNodes[0]);
+                startTime = clock();
+                net->Backprop(criterionNodes[0]);
+                endTime = clock();
+                backwardTime += endTime - startTime;
 
                 // house-keeping for sub-minibatching
                 if (actualNumSubminibatches > 1)
@@ -1300,7 +1379,6 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 smbDispatcher.DoneWithCurrentMinibatch();
         } // if (actualMBSize > 0)
         // WARNING: If actualMBSize == 0, then criterion nodes have NOT been updated, and contain garbage (last MB's) values.
-
         // In case of mini epochs (used for adaptive minibatch size and learning rate),
         // no more data should be processed by this worker.
         if (shouldCheckEarlyExit)
@@ -1318,6 +1396,8 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
         // Note: All accumulation into an EpochCriterion uses 'numSamplesWithLabelOfNetwork' as the generic,
         // fallback minibatch size. If that is 0, then nodes are considered containing zero samples,
         // independent of their actual content (which is considered outdated).
+
+        startTime = clock();
 
         // Sum of actualMBSize across all nodes when using parallel training
         // 'aggregate' here means across-worker aggregate for this one minibatch.
@@ -1657,6 +1737,9 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
         // processing more utterances at the same time. Only used in Kaldi2Reader.
         // TODO: move the two-forward-pass support out of the reader.
         AttemptUtteranceDerivativeFeatures(net, trainSetDataReader, featureNodes, inputMatrices);
+
+        endTime = clock();
+        aggregateTime += endTime - startTime;
 
         profiler.NextSample();
         isFirstMinibatch = false;
