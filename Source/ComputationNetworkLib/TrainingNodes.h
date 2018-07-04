@@ -3167,7 +3167,6 @@ static vector<void*>gradientGlobalMemoryBlockVec = vector<void*>();
 static vector<size_t>validateCounter = vector<size_t>();
 #pragma endregion
 
-
 #pragma region Training Nodes Share Global Memory
 template <class ElemType>
 class GlobalConcatNode : public ComputationNodeNonLooping /*ComputationNode*/<ElemType>, public NumInputs<1>
