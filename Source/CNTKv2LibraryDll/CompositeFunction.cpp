@@ -1005,10 +1005,11 @@ namespace CNTK
                 }
                 case PrimitiveOpType::GlobalConcat:
                 {
-                    auto memoryBlockName = functionConfig[PrimitiveFunction::AttributeGlobalConcatMemoryBlockName].Value<std::wstring>();
-                    auto memoryLength = functionConfig[PrimitiveFunction::AttributeGlobalConcatMemoryLength].Value<size_t>();
+                    auto blockIndex = functionConfig[PrimitiveFunction::AttributeGlobalConcatBlockIndex].Value<size_t>();
+                    auto growthRate = functionConfig[PrimitiveFunction::AttributeGlobalConcatGrowthRate].Value<size_t>();
                     auto segmentIndex = functionConfig[PrimitiveFunction::AttributeGlobalConcatSegmentIndex].Value<size_t>();
-                    computationNodePtr = New<GlobalConcatNode<ElementType>>(network->GetDeviceId(), internalNodeName, memoryBlockName, memoryLength, segmentIndex);
+                    auto segmentNum = functionConfig[PrimitiveFunction::AttributeGlobalConcatSegmentNum].Value<size_t>();
+                    computationNodePtr = New<GlobalConcatNode<ElementType>>(network->GetDeviceId(), internalNodeName, blockIndex, growthRate, segmentIndex, segmentNum);
                     break;
                 }
                 case PrimitiveOpType::CrossEntropyWithSoftmax:

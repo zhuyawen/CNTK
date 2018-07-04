@@ -676,12 +676,6 @@ public:
         Base::Validate(isFinalValidationPass);
         InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
 
-        LOGPRINTF(stderr, "InputRef(2).Value().GetNumRows() = %d\n", (int)(InputRef(2).Value().GetNumRows()));
-        cout << "InputRef(2).Value().GetNumRows() = " << InputRef(2).Value().GetNumRows() << endl;
-        ofstream outFile("FC.txt");
-        outFile << "InputRef(2).Value().GetNumRows() = " << InputRef(2).Value().GetNumRows() << endl;
-        outFile.close();
-
         SetDims(TensorShape(InputRef(2).Value().GetNumRows()), HasMBLayout());
     }
 
@@ -3092,8 +3086,6 @@ private:
 };
 
 
-
-
 #pragma region GlobalMemoryBlock
 /*
     GlobalMemoryBlock
@@ -3120,9 +3112,16 @@ class GlobalMemoryBlock
 public:
     GlobalMemoryBlock() {}
 
-    GlobalMemoryBlock(size_t _memoryLength, size_t _minibatchSize, shared_ptr<Matrix<ElemType>> _globalMemoryMatrix, bool needInit = false)
-        : memoryLength(_memoryLength), minibatchSize(_minibatchSize), globalMemoryMatrix(_globalMemoryMatrix), index(0)
+    GlobalMemoryBlock(size_t _memoryLength)
     {
+        memoryLength = _memoryLength;
+    }
+
+    void init(size_t _minibatchSize, shared_ptr<Matrix<ElemType>> _globalMemoryMatrix, bool needInit = false)
+    {
+        minibatchSize = _minibatchSize;
+        globalMemoryMatrix = _globalMemoryMatrix;
+        index = 0;
         globalMemoryMatrix->Resize(memoryLength, minibatchSize);
         if (needInit)
             globalMemoryMatrix->SetValue((ElemType)0);
@@ -3163,10 +3162,9 @@ public:
     shared_ptr<Matrix<ElemType>>globalMemoryMatrix;
 };
 
-static std::map<wstring, void*>valueGlobalMemoryBlockMap = std::map<wstring, void*>();
-static std::map<wstring, void*>gradientGlobalMemoryBlockMap = std::map<wstring, void*>();
-
-static std::map<wstring, size_t>validateCounter = std::map<wstring, size_t>();
+static vector<void*>valueGlobalMemoryBlockVec = vector<void*>();
+static vector<void*>gradientGlobalMemoryBlockVec = vector<void*>();
+static vector<size_t>validateCounter = vector<size_t>();
 #pragma endregion
 
 
@@ -3181,19 +3179,29 @@ public:
 
 public:
     GlobalConcatNode(const ScriptableObjects::IConfigRecordPtr configp) :
-        GlobalConcatNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"memoryBlockName"), configp->Get(L"memoryLength"), configp->Get(L"segmentIndex"))
+        GlobalConcatNode(configp->Get(L"deviceId"), L"<placeholder>", configp->Get(L"blockIndex"), configp->Get(L"growthRate"), configp->Get(L"segmentIndex"), configp->Get(L"segmentNum"))
     {
         AttachInputsFromConfig(configp, this->GetExpectedNumInputs());
     }
 
-    GlobalConcatNode(DEVICEID_TYPE deviceId, const wstring& name, wstring memoryBlockName = L"", size_t memoryLength = 0, size_t segmentIndex = 0)
-        : Base(deviceId, name), m_memoryBlockName(memoryBlockName), m_memoryLength(memoryLength), m_segmentIndex(segmentIndex)
+    GlobalConcatNode(DEVICEID_TYPE deviceId, const wstring& name, size_t blockIndex = 0, size_t growthRate = 0, size_t segmentIndex = 0, size_t segmentNum = 0)
+        : Base(deviceId, name), m_blockIndex(blockIndex), m_growthRate(growthRate), m_segmentIndex(segmentIndex), m_segmentNum(segmentNum)
     {
+    }
+
+    virtual void UpdateFunctionMBSize() override
+    {
+        if (0 == m_segmentIndex)
+        {
+            size_t minibatchSize = InputRef(0).Value().GetNumCols();
+            ((GlobalMemoryBlock<ElemType>*)valueGlobalMemoryBlockVec[m_blockIndex])->init(minibatchSize, m_valueGlobalMemoryMatrix);
+            ((GlobalMemoryBlock<ElemType>*)gradientGlobalMemoryBlockVec[m_blockIndex])->init(minibatchSize, m_gradientGlobalMemoryMatrix, true);
+        }
     }
 
     virtual void BackpropToNonLooping(size_t inputIndex) override
     {
-        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(gradientGlobalMemoryBlockMap.find(m_memoryBlockName)->second);
+        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(gradientGlobalMemoryBlockVec[m_blockIndex]);
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X_gradient = InputRef(0).GradientFor(fr);
         globalMemoryBlockPtr->addSegmentMatrix(Gradient(), Gradient().GetNumRows());
@@ -3201,39 +3209,23 @@ public:
 
         if (0 == m_segmentIndex)
         {
-            map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
-            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
-            valueGlobalMemoryBlockMap.erase(valueIt);
-            map<wstring, void*>::iterator gradientIt = gradientGlobalMemoryBlockMap.find(m_memoryBlockName);
-            delete (GlobalMemoryBlock<ElemType>*)(gradientIt->second);
-            gradientGlobalMemoryBlockMap.erase(gradientIt);
+            ((GlobalMemoryBlock<ElemType>*)valueGlobalMemoryBlockVec[m_blockIndex])->globalMemoryMatrix.reset();
+            ((GlobalMemoryBlock<ElemType>*)gradientGlobalMemoryBlockVec[m_blockIndex])->globalMemoryMatrix.reset();
         }
     }
 
     virtual void /*ComputationNodeNonLooping::*/ ForwardPropNonLooping() override
     {
-        if (0 == m_segmentIndex)
-        {
-            GlobalMemoryBlock<ElemType>* valueGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, InputRef(0).Value().GetNumCols(), m_valueGlobalMemoryMatrix);
-            valueGlobalMemoryBlockMap[m_memoryBlockName] = (void*)valueGlobalMemoryBlock;
-            if (Environment().IsTraining())
-            {
-                GlobalMemoryBlock<ElemType>* gradientGlobalMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength, InputRef(0).Value().GetNumCols(), m_gradientGlobalMemoryMatrix, true);
-                gradientGlobalMemoryBlockMap[m_memoryBlockName] = (void*)gradientGlobalMemoryBlock;
-            }
-        }
-
-        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(valueGlobalMemoryBlockMap.find(m_memoryBlockName)->second);
+        GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(valueGlobalMemoryBlockVec[m_blockIndex]);
         FrameRange fr(InputRef(0).GetMBLayout());
         auto X = InputRef(0).ValueFor(fr);
         globalMemoryBlockPtr->stackSegmentMatrix(X, m_numRows);
         globalMemoryBlockPtr->getSegmentMatrix(Value(), 0, globalMemoryBlockPtr->index);
 
-        if (m_startIndex + m_numRows == m_memoryLength && !Environment().IsTraining())
+        if (m_segmentNum == m_segmentIndex && !Environment().IsTraining())
         {
-            map<wstring, void*>::iterator valueIt = valueGlobalMemoryBlockMap.find(m_memoryBlockName);
-            delete (GlobalMemoryBlock<ElemType>*)(valueIt->second);
-            valueGlobalMemoryBlockMap.erase(valueIt);
+            ((GlobalMemoryBlock<ElemType>*)valueGlobalMemoryBlockVec[m_blockIndex])->globalMemoryMatrix.reset();
+            ((GlobalMemoryBlock<ElemType>*)gradientGlobalMemoryBlockVec[m_blockIndex])->globalMemoryMatrix.reset();
         }
     }
 
@@ -3249,14 +3241,23 @@ public:
         {
             m_dims = Input(0)->GetSampleLayout().GetDims();
             m_numRows = m_dims[0] * m_dims[1] * m_dims[2];
-            if (m_segmentIndex != 0)
+            if (0 == m_segmentIndex)
             {
-                m_startIndex = m_dims[0] * m_dims[1] * validateCounter[m_memoryBlockName];
-                m_dims[2] += validateCounter[m_memoryBlockName];
+                m_startIndex = 0;
+                validateCounter.push_back(0);
+
+                m_memoryLength = m_dims[0] * m_dims[1] * (m_dims[2] + m_growthRate * m_segmentNum);
+                GlobalMemoryBlock<ElemType>* valueMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength);
+                valueGlobalMemoryBlockVec.push_back(valueMemoryBlock);
+                GlobalMemoryBlock<ElemType>* gradientMemoryBlock = new GlobalMemoryBlock<ElemType>(m_memoryLength);
+                gradientGlobalMemoryBlockVec.push_back(gradientMemoryBlock);
             }
             else
-                m_startIndex = 0;
-            validateCounter[m_memoryBlockName] = m_dims[2];
+            {
+                m_startIndex = m_dims[0] * m_dims[1] * validateCounter[m_blockIndex];
+                m_dims[2] += validateCounter[m_blockIndex];
+            }
+            validateCounter[m_blockIndex] = m_dims[2];
         }
 
         SetDims(TensorShape(m_dims), HasMBLayout());
@@ -3268,9 +3269,10 @@ public:
         if (flags & CopyNodeFlags::copyNodeValue)
         {
             auto node = dynamic_pointer_cast<GlobalConcatNode<ElemType>>(nodeP);
-            node->m_memoryBlockName = m_memoryBlockName;
-            node->m_memoryLength = m_memoryLength;
-            node->m_segmentIndex = m_segmentIndex;
+            node->m_blockIndex = m_blockIndex;
+            node->m_growthRate = m_growthRate;
+            node->m_memoryLength = m_segmentIndex;
+            node->m_segmentIndex = m_segmentNum;
             node->m_startIndex = m_startIndex;
             node->m_numRows = m_numRows;
         }
@@ -3301,20 +3303,22 @@ public:
     void Save(File& fstream) const override
     {
         Base::Save(fstream);
-        fstream << m_memoryBlockName << m_memoryLength << m_startIndex << m_numRows << m_segmentIndex;
+        fstream << m_blockIndex << m_growthRate << m_segmentIndex << m_segmentNum << m_startIndex << m_numRows << m_memoryLength;
     }
 
     void Load(File& fstream, size_t modelVersion) override
     {
         Base::Load(fstream, modelVersion);
-        fstream >> m_memoryBlockName >> m_memoryLength >> m_startIndex >> m_numRows >> m_segmentIndex;
+        fstream >> m_blockIndex >> m_growthRate >> m_segmentIndex >> m_segmentNum >> m_startIndex >> m_numRows >> m_memoryLength;
     }
 
-    wstring m_memoryBlockName;
-    size_t m_memoryLength;
+    size_t m_blockIndex;
+    size_t m_growthRate;
     size_t m_segmentIndex;
+    size_t m_segmentNum;
     size_t m_startIndex;
     size_t m_numRows;
+    size_t m_memoryLength;
     SmallVector<size_t> m_dims;
 
     shared_ptr<Matrix<ElemType>> m_valueGlobalMemoryMatrix;
@@ -3702,7 +3706,7 @@ public:
 
                 GlobalConcatNode<ElemType>* inputNode = dynamic_cast<GlobalConcatNode<ElemType>*>(Input(DATA).get());
                 m_tempSegment->Resize(inputNode->m_startIndex + inputNode->m_numRows, Gradient().GetNumCols());
-                GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(valueGlobalMemoryBlockMap.find(inputNode->m_memoryBlockName)->second);
+                GlobalMemoryBlock<ElemType>* globalMemoryBlockPtr = (GlobalMemoryBlock<ElemType>*)(valueGlobalMemoryBlockVec[inputNode->m_blockIndex]);
                 globalMemoryBlockPtr->getSegmentMatrix(*m_tempSegment, 0, inputNode->m_startIndex + inputNode->m_numRows);
 
 

@@ -81,9 +81,9 @@ AdditiveFullConnectionLayer {inputDimension, outputDimension, weightNormalize=tr
 
 # GlobalConcatLayer -- create a concat layer, which uses temporary global memory to save the output
 # Note: outputDimension may describe a tensor as well.
-GlobalConcatLayer {memoryBlockName, memoryLength, segmentIndex} =
+GlobalConcatLayer {blockIndex, growthRate, segmentIndex, segmentNum} =
 {
-    apply (outProbVectorSequence) = GlobalConcat(outProbVectorSequence, memoryBlockName, memoryLength, segmentIndex)
+    apply (outProbVectorSequence) = GlobalConcat(outProbVectorSequence, blockIndex, growthRate, segmentIndex, segmentNum)
 }.apply
 
 # DenseLayer -- create a fully-connected layer with optional non-linearity
@@ -513,7 +513,7 @@ CNTK2 = [
     #
     # GlobalConcat node
     #
-    GlobalConcat(feature, memoryBlockName, memoryLength, segmentIndex, tag='') = 
+    GlobalConcat(feature, blockIndex, growthRate, segmentIndex, segmentNum, tag='') = 
         new ComputationNode [ operation = 'GlobalConcat' ; inputs = _AsNodes (feature) /*plus the function args*/ ]
 
 

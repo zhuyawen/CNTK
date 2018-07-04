@@ -4110,7 +4110,7 @@ namespace CNTK
 
     CNTK_API FunctionPtr AdditiveFullConnection(const Variable& prediction, const Variable& targets, const Variable& weight, size_t outputDimension, bool weightNormalize, double bias, bool annealBias, double biasBase, double biasGamma, double biasPower, double biasMin, double biasMax, const std::wstring& name = L"");
 
-    CNTK_API FunctionPtr GlobalConcat(const Variable& feature, std::wstring memoryBlockName, size_t memoryLength, size_t segmentIndex, const std::wstring& name = L"");
+    CNTK_API FunctionPtr GlobalConcat(const Variable& feature, size_t blockIndex, size_t growthRate, size_t segmentIndex, size_t segmentNum, const std::wstring& name = L"");
 
 
     ///

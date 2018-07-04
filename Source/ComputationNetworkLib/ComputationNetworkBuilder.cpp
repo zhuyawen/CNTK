@@ -487,9 +487,9 @@ shared_ptr<ComputationNode<ElemType>> ComputationNetworkBuilder<ElemType>::Addit
 }
 
 template <class ElemType>
-shared_ptr<ComputationNode<ElemType>> ComputationNetworkBuilder<ElemType>::GlobalConcat(const ComputationNodePtr a, std::wstring memoryBlockName, size_t memoryLength, size_t segmentIndex, const std::wstring nodeName)
+shared_ptr<ComputationNode<ElemType>> ComputationNetworkBuilder<ElemType>::GlobalConcat(const ComputationNodePtr a, size_t blockIndex, size_t growthRate, size_t segmentIndex, size_t segmentNum, const std::wstring nodeName)
 {
-    return net.AddNodeToNetAndAttachInputs(New<GlobalConcatNode<ElemType>>(net.GetDeviceId(), nodeName, memoryBlockName, memoryLength, segmentIndex), { a });
+    return net.AddNodeToNetAndAttachInputs(New<GlobalConcatNode<ElemType>>(net.GetDeviceId(), nodeName, blockIndex, growthRate, segmentIndex, segmentNum), { a });
 }
 
 
