@@ -676,12 +676,6 @@ public:
         Base::Validate(isFinalValidationPass);
         InferMBLayoutFromInputsForStandardCase(isFinalValidationPass);
 
-        LOGPRINTF(stderr, "InputRef(2).Value().GetNumRows() = %d\n", (int)(InputRef(2).Value().GetNumRows()));
-        cout << "InputRef(2).Value().GetNumRows() = " << InputRef(2).Value().GetNumRows() << endl;
-        ofstream outFile("FC.txt");
-        outFile << "InputRef(2).Value().GetNumRows() = " << InputRef(2).Value().GetNumRows() << endl;
-        outFile.close();
-
         SetDims(TensorShape(InputRef(2).Value().GetNumRows()), HasMBLayout());
     }
 
@@ -3093,7 +3087,6 @@ private:
 
 
 
-
 #pragma region GlobalMemoryBlock
 /*
     GlobalMemoryBlock
@@ -3165,10 +3158,8 @@ public:
 
 static std::map<wstring, void*>valueGlobalMemoryBlockMap = std::map<wstring, void*>();
 static std::map<wstring, void*>gradientGlobalMemoryBlockMap = std::map<wstring, void*>();
-
 static std::map<wstring, size_t>validateCounter = std::map<wstring, size_t>();
 #pragma endregion
-
 
 #pragma region Training Nodes Share Global Memory
 template <class ElemType>
