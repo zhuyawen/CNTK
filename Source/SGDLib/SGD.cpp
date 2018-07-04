@@ -1307,9 +1307,9 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
 
             if (m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR == 0 && m_lrapiInfo.iter != 0)
             {
-                fprintf(stderr, "Iteration %d: forward time = %.8gs\n", (int)m_lrapiInfo.iter, (double)forwardTime / 1000);
-                fprintf(stderr, "Iteration %d: backward time = %.8gs\n", (int)m_lrapiInfo.iter, (double)backwardTime / 1000);
-                fprintf(stderr, "Iteration %d: aggregate time = %.8gs\n", (int)m_lrapiInfo.iter, (double)aggregateTime / 1000);
+                fprintf(stderr, "Iteration [%d-%d]: forward time = %.8gs\n", (int)m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1, (int)m_lrapiInfo.iter, (double)forwardTime / 1000);
+                fprintf(stderr, "Iteration [%d-%d]: backward time = %.8gs\n", (int)m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1, (int)m_lrapiInfo.iter, (double)backwardTime / 1000);
+                fprintf(stderr, "Iteration [%d-%d]: aggregate time = %.8gs\n", (int)m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1, (int)m_lrapiInfo.iter, (double)aggregateTime / 1000);
                 forwardTime = 0;
                 backwardTime = 0;
                 aggregateTime = 0;
