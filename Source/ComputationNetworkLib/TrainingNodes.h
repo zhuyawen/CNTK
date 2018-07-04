@@ -3188,6 +3188,15 @@ public:
     {
     }
 
+    ~GlobalConcatNode()
+    {
+        if (0 == m_segmentIndex)
+        {
+            delete (GlobalMemoryBlock<ElemType>*)valueGlobalMemoryBlockVec[m_blockIndex];
+            delete (GlobalMemoryBlock<ElemType>*)gradientGlobalMemoryBlockVec[m_blockIndex];
+        }
+    }
+
     virtual void UpdateFunctionMBSize() override
     {
         if (0 == m_segmentIndex)
