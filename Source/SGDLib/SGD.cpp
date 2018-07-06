@@ -507,63 +507,6 @@ void SGD<ElemType>::TrainOrAdaptModel(int startEpoch, ComputationNetworkPtr net,
         tensorBoardWriter = make_shared<::CNTK::Internal::TensorBoardFileWriter>(m_tensorBoardLogDir, net);
     }
 
-
-#ifdef _WIN32
-    FILE* pipeFile1 = _popen("nvidia-smi", "r");
-#else
-    FILE* pipeFile1 = popen("nvidia-smi", "r");
-#endif
-    if (pipeFile1)
-    {
-        fprintf(stderr, "/****SMI****/\n\n");
-        char buffer[256];
-        string ret = "";
-        while (!feof(pipeFile1))
-        {
-            if (fgets(buffer, 256, pipeFile1) != NULL)
-                ret += buffer;
-        }
-#ifdef _WIN32
-        _pclose(pipeFile1);
-#else
-        pclose(pipeFile1);
-#endif
-        fprintf(stderr, "%s\n", ret.c_str());
-        fprintf(stderr, "/****SMI****/\n");
-    }
-    else
-    {
-#ifdef _WIN32
-        _pclose(pipeFile1);
-#else
-        pclose(pipeFile1);
-#endif
-        fprintf(stderr, "SMI : Could not open smi\n");
-    }
-
-#ifndef _WIN32
-    FILE* pipeFile2 = popen("nvidia-smi topo -m", "r");
-    if (pipeFile2)
-    {
-        fprintf(stderr, "/****SMI****/\n\n");
-        char buffer[256];
-        string ret = "";
-        while (!feof(pipeFile2))
-        {
-            if (fgets(buffer, 256, pipeFile2) != NULL)
-                ret += buffer;
-        }
-        pclose(pipeFile2);
-        fprintf(stderr, "%s\n", ret.c_str());
-        fprintf(stderr, "/****SMI****/\n");
-    }
-    else
-    {
-        pclose(pipeFile2);
-        fprintf(stderr, "SMI : Could not open smi\n");
-    }
-#endif
-
     // --- MAIN EPOCH LOOP
     for (int i = startEpoch; i < (int) m_maxEpochs; i++) // TODO: why is this an int, and not a size_t?
     {
@@ -1748,7 +1691,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
         ProfilerTimeEnd(profMinibatch, profilerEvtMainMinibatch);
 
 
-        if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToSaveModel && m_lrapiInfo.iter != 0)
+        if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToSaveModel && m_lrapiInfo.iter != 0 && ((m_mpi == nullptr) || m_mpi->IsMainNode()))
             net->Save(m_modelPath + L"-Iter" + to_wstring(m_lrapiInfo.iter));
     }
 
