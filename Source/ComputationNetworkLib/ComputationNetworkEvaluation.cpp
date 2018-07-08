@@ -183,9 +183,9 @@ static map<void*, clock_t>backwardNodeTime;
 
         if (forwardNodeCnt[ptr] == 100 && forwardNodeTime[ptr] >= 100)
             fprintf(stderr, "%ls : Forward[1-100] time = %.8gs\n", node->NodeName().c_str(), (double)forwardNodeTime[ptr] / 1000);
-        else if (forwardNodeCnt[ptr] % 10000 == 0 && forwardNodeTime[ptr] >= CLOCKS_PER_SEC * 1000)
+        else if (forwardNodeCnt[ptr] % 10000 == 0 && forwardNodeTime[ptr] >= CLOCKS_PER_SEC)
         {
-            fprintf(stderr, "%ls : Forward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(forwardNodeCnt[ptr] - 9999), (int)forwardNodeCnt[ptr], (double)forwardNodeTime[ptr] / CLOCKS_PER_SEC / 1000);
+            fprintf(stderr, "%ls : Forward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(forwardNodeCnt[ptr] - 9999), (int)forwardNodeCnt[ptr], (double)forwardNodeTime[ptr] / CLOCKS_PER_SEC);
             forwardNodeTime[ptr] = 0;
         }
 #endif
@@ -245,9 +245,9 @@ static map<void*, clock_t>backwardNodeTime;
 
         if (backwardNodeCnt[ptr] == 100 && backwardNodeTime[ptr] >= 100)
             fprintf(stderr, "%ls : Backward[1-100] time = %.8gs\n", node->NodeName().c_str(), (double)backwardNodeTime[ptr] / 1000);
-        else if (backwardNodeCnt[ptr] % 10000 == 0 && backwardNodeTime[ptr] >= CLOCKS_PER_SEC * 1000)
+        else if (backwardNodeCnt[ptr] % 10000 == 0 && backwardNodeTime[ptr] >= CLOCKS_PER_SEC)
         {
-            fprintf(stderr, "%ls : Backward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(backwardNodeCnt[ptr] - 9999), (int)backwardNodeCnt[ptr], (double)backwardNodeTime[ptr] / CLOCKS_PER_SEC / 1000);
+            fprintf(stderr, "%ls : Backward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(backwardNodeCnt[ptr] - 9999), (int)backwardNodeCnt[ptr], (double)backwardNodeTime[ptr] / CLOCKS_PER_SEC);
             backwardNodeTime[ptr] = 0;
         }
 #endif
