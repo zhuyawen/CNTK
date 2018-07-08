@@ -5,6 +5,8 @@
 
 #define _CRT_SECURE_NO_WARNINGS // "secure" CRT not available on all platforms  --add this at the top of all CPP files that give "function or variable may be unsafe" warnings
 
+#define __PROFILE__
+
 #include "Basics.h"
 #include "ComputationNode.h"
 #include "ComputationNetwork.h"
@@ -141,15 +143,19 @@ ComputationNetwork::PARTraversalFlowControlNode::PARTraversalFlowControlNode(con
     }
 }
 
+#ifdef __PROFILE__
 static map<void*, clock_t>forwardNodeCnt;
 static map<void*, clock_t>backwardNodeCnt;
 static map<void*, clock_t>forwardNodeTime;
 static map<void*, clock_t>backwardNodeTime;
+#endif
 
 /*static*/ void ComputationNetwork::PARTraversalFlowControlNode::ForwardProp(const ComputationNodeBasePtr& node, const FrameRange& fr)
 {
     if (node->IsOutOfDateWrtInputs())
     {
+
+#ifdef __PROFILE__
         void* ptr = node.get();
         if (forwardNodeTime.find(ptr) == forwardNodeTime.end())
         {
@@ -159,6 +165,7 @@ static map<void*, clock_t>backwardNodeTime;
         else
             ++forwardNodeCnt[ptr];
         clock_t t1 = clock();
+#endif
 
         node->BeginForwardProp();
         node->ForwardProp(fr.WithLayout(node->GetMBLayout()));
@@ -170,16 +177,19 @@ static map<void*, clock_t>backwardNodeTime;
         if (node->HasEnvironmentPtr() && node->Environment().ShouldDumpNode())
             DumpNode<float>(node, /*dumpGradient=*/false) || DumpNode<double>(node, false);
 
+#ifdef __PROFILE__
         clock_t t2 = clock();
         forwardNodeTime[ptr] += t2 - t1;
 
         if (forwardNodeCnt[ptr] == 100 && forwardNodeTime[ptr] >= 100)
             fprintf(stderr, "%ls : Forward[1-100] time = %.8gs\n", node->NodeName().c_str(), (double)forwardNodeTime[ptr] / 1000);
-        else if (forwardNodeCnt[ptr] % 10000 == 0 && forwardNodeTime[ptr] >= 10000)
+        else if (forwardNodeCnt[ptr] % 10000 == 0 && forwardNodeTime[ptr] >= CLOCKS_PER_SEC * 1000)
         {
-            fprintf(stderr, "%ls : Forward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(forwardNodeCnt[ptr] - 9999), (int)forwardNodeCnt[ptr], (double)forwardNodeTime[ptr] / 100000);
+            fprintf(stderr, "%ls : Forward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(forwardNodeCnt[ptr] - 9999), (int)forwardNodeCnt[ptr], (double)forwardNodeTime[ptr] / CLOCKS_PER_SEC / 1000);
             forwardNodeTime[ptr] = 0;
         }
+#endif
+
     }
 }
 
@@ -209,6 +219,7 @@ static map<void*, clock_t>backwardNodeTime;
     {
         auto& node = *pnode;
 
+#ifdef __PROFILE__
         void* ptr = node.get();
         if (backwardNodeTime.find(ptr) == backwardNodeTime.end())
         {
@@ -218,6 +229,7 @@ static map<void*, clock_t>backwardNodeTime;
         else
             ++backwardNodeCnt[ptr];
         clock_t t1 = clock();
+#endif
 
         node->BeginBackprop();
         node->Backprop(fr.WithLayout(node->GetMBLayout()), true /*childrenInThisLoop*/, true /*childrenInOuterLoop*/);
@@ -227,16 +239,19 @@ static map<void*, clock_t>backwardNodeTime;
         if (node->HasEnvironmentPtr() && node->Environment().ShouldDumpNode() && node->NeedsGradient())
             DumpNode<float>(node, /*dumpGradient=*/true) || DumpNode<double>(node, true);
 
+#ifdef __PROFILE__
         clock_t t2 = clock();
         backwardNodeTime[ptr] += t2 - t1;
 
         if (backwardNodeCnt[ptr] == 100 && backwardNodeTime[ptr] >= 100)
             fprintf(stderr, "%ls : Backward[1-100] time = %.8gs\n", node->NodeName().c_str(), (double)backwardNodeTime[ptr] / 1000);
-        else if (backwardNodeCnt[ptr] % 10000 == 0 && backwardNodeTime[ptr] >= 10000)
+        else if (backwardNodeCnt[ptr] % 10000 == 0 && backwardNodeTime[ptr] >= CLOCKS_PER_SEC * 1000)
         {
-            fprintf(stderr, "%ls : Backward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(backwardNodeCnt[ptr] - 9999), (int)backwardNodeCnt[ptr], (double)backwardNodeTime[ptr] / 100000);
+            fprintf(stderr, "%ls : Backward[%d-%d] time = %.8gs\n", node->NodeName().c_str(), (int)(backwardNodeCnt[ptr] - 9999), (int)backwardNodeCnt[ptr], (double)backwardNodeTime[ptr] / CLOCKS_PER_SEC / 1000);
             backwardNodeTime[ptr] = 0;
         }
+#endif
+
     }
 }
 /*virtual*/ void ComputationNetwork::PARTraversalFlowControlNode::RequestMatricesBeforeForwardProp(MatrixPool& matrixPool) /*override*/

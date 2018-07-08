@@ -8,6 +8,8 @@
 
 #define _CRT_SECURE_NO_WARNINGS // "secure" CRT not available on all platforms  --add this at the top of all CPP files that give "function or variable may be unsafe" warnings
 
+#define __PROFILE__
+
 #include "Basics.h"
 #include "SGD.h"
 #include "NonlinearityNodes.h"          // for DropoutNode
@@ -1008,11 +1010,13 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                                     const int startEpoch)
 {
 
+#ifdef __PROFILE__
     clock_t forwardTime = 0;
     clock_t backwardTime = 0;
     clock_t aggregateTime = 0;
     clock_t startTime = 0;
     clock_t endTime = 0;
+#endif
 
     PROFILE_SCOPE(profilerEvtMainEpoch);
 
@@ -1248,15 +1252,17 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                                               dynamic_pointer_cast<ComputationNode<ElemType>>(labelNodes[0])->Value());
             }
 
+#ifdef __PROFILE__
             if (m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR == 0 && m_lrapiInfo.iter != 0)
             {
-                fprintf(stderr, "Iteration [%d-%d]: forward time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)forwardTime / 1000);
-                fprintf(stderr, "Iteration [%d-%d]: backward time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)backwardTime / 1000);
-                fprintf(stderr, "Iteration [%d-%d]: aggregate time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)aggregateTime / 1000);
+                fprintf(stderr, "Iteration [%d-%d]: forward time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)forwardTime / CLOCKS_PER_SEC);
+                fprintf(stderr, "Iteration [%d-%d]: backward time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)backwardTime / CLOCKS_PER_SEC);
+                fprintf(stderr, "Iteration [%d-%d]: aggregate time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)aggregateTime / CLOCKS_PER_SEC);
                 forwardTime = 0;
                 backwardTime = 0;
                 aggregateTime = 0;
             }
+#endif
 
             // adjust learning rate by iteration
             if (m_lrapiInfo.adjustType != AdjustType::None)
@@ -1299,19 +1305,27 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
 
                 // compute eval node first since when gradient is computed the forward function values
                 // may be changed and need to be recomputed when gradient and function value share the same matrix
+#ifdef __PROFILE__
                 startTime = clock();
+#endif
                 net->ForwardProp(forwardPropRoots); // the bulk of this evaluation is reused in ComputeGradient() below
+#ifdef __PROFILE__
                 endTime = clock();
                 forwardTime += endTime - startTime;
+#endif
 
                 // ===========================================================
                 // backprop
                 // ===========================================================
                 //if (learnRatePerSample > 0.01 * m_minLearnRate) // only compute gradient when learning rate is large enough
+#ifdef __PROFILE__
                 startTime = clock();
+#endif
                 net->Backprop(criterionNodes[0]);
+#ifdef __PROFILE__
                 endTime = clock();
                 backwardTime += endTime - startTime;
+#endif
 
                 // house-keeping for sub-minibatching
                 if (actualNumSubminibatches > 1)
@@ -1340,7 +1354,9 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
         // fallback minibatch size. If that is 0, then nodes are considered containing zero samples,
         // independent of their actual content (which is considered outdated).
 
+#ifdef __PROFILE__
         startTime = clock();
+#endif
 
         // Sum of actualMBSize across all nodes when using parallel training
         // 'aggregate' here means across-worker aggregate for this one minibatch.
@@ -1681,8 +1697,10 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
         // TODO: move the two-forward-pass support out of the reader.
         AttemptUtteranceDerivativeFeatures(net, trainSetDataReader, featureNodes, inputMatrices);
 
+#ifdef __PROFILE__
         endTime = clock();
         aggregateTime += endTime - startTime;
+#endif
 
         profiler.NextSample();
         isFirstMinibatch = false;

@@ -13,6 +13,9 @@
 #include "CuDnnCommon.h"
 #include "ProgressTracing.h"
 #include <set>
+
+#define __PROFILE__
+
 using namespace std;
 
 template <>
@@ -199,9 +202,13 @@ enum class AutotuningState : int
     Running = 2        // done tuning, no long performing auto-tuning, code is running normally
 };
 
+
+#ifdef __PROFILE__
 static std::set<int> forwardAlgo = std::set<int>();
 static std::set<int> backwardDataAlgo = std::set<int>();
 static std::set<int> backwardFilterAlgo = std::set<int>();
+#endif
+
 
 template <class ElemType>
 class CuDnnConvolutionEngine : public ConvolutionEngine<ElemType>
@@ -315,6 +322,7 @@ protected:
         FindBestAlgo(batchSize, m_fwdAlgo, workspaceSizeFinder, deterministicFinder, finder, staticFinder, workspace);
         // Perform forward convolution operation.
 
+#ifdef __PROFILE__
         if (forwardAlgo.find(m_fwdAlgo.selectedAlgo) == forwardAlgo.end())
         {
             if (CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM == m_fwdAlgo.selectedAlgo)LOGPRINTF(stderr, "Cudnn forward kernel : CUDNN_CONVOLUTION_FWD_ALGO_IMPLICIT_GEMM\n");
@@ -328,6 +336,8 @@ protected:
             else if (CUDNN_CONVOLUTION_FWD_ALGO_COUNT == m_fwdAlgo.selectedAlgo)LOGPRINTF(stderr, "Cudnn forward kernel : CUDNN_CONVOLUTION_FWD_ALGO_COUNT\n");
             forwardAlgo.insert(m_fwdAlgo.selectedAlgo);
         }
+#endif
+
         CUDNN_CALL(cudnnConvolutionForward(*m_cudnn, &C::One, m_inT, ptr(in), *m_kernelT, ptr(kernel), *m_conv, m_fwdAlgo.selectedAlgo, ptr(workspace), workspace.BufferSize(), &C::Zero, m_outT, ptr(out)));
     }
 
@@ -391,6 +401,7 @@ protected:
         FindBestAlgo(batchSize, m_backDataAlgo, workspaceSizeFinder, deterministicFinder, finder, staticFinder, workspace);
         // Compute gradients with respect to the output tensor (data).
 
+#ifdef __PROFILE__
         if (backwardDataAlgo.find(m_backDataAlgo.selectedAlgo) == backwardDataAlgo.end())
         {
             if (CUDNN_CONVOLUTION_BWD_DATA_ALGO_0 == m_backDataAlgo.selectedAlgo)LOGPRINTF(stderr, "Cudnn backwardData kernel : CUDNN_CONVOLUTION_BWD_DATA_ALGO_0\n");
@@ -402,6 +413,8 @@ protected:
             else if (CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT == m_backDataAlgo.selectedAlgo)LOGPRINTF(stderr, "Cudnn backwardData kernel : CUDNN_CONVOLUTION_BWD_DATA_ALGO_COUNT\n");
             backwardDataAlgo.insert(m_backDataAlgo.selectedAlgo);
         }
+#endif
+
         CUDNN_CALL(cudnnConvolutionBackwardData(*m_cudnn, &C::One, *m_kernelT, ptr(kernel), m_outT, ptr(srcGrad), *m_conv, m_backDataAlgo.selectedAlgo, ptr(workspace), workspace.BufferSize(), accumulateGradient ? &C::One : &C::Zero, m_inT, ptr(grad)));
     }
 
@@ -465,6 +478,7 @@ protected:
         FindBestAlgo(batchSize, m_backFiltAlgo, workspaceSizeFinder, deterministicFinder, finder, staticFinder, workspace);
         // Compute gradients with respect to the output tensor (data).
 
+#ifdef __PROFILE__
         if (backwardFilterAlgo.find(m_backFiltAlgo.selectedAlgo) == backwardFilterAlgo.end())
         {
             if (CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0 == m_backFiltAlgo.selectedAlgo)LOGPRINTF(stderr, "Cudnn backwardFilter kernel : CUDNN_CONVOLUTION_BWD_FILTER_ALGO_0\n");
@@ -477,6 +491,8 @@ protected:
             else if (CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT == m_backFiltAlgo.selectedAlgo)LOGPRINTF(stderr, "Cudnn backwardFilter kernel : CUDNN_CONVOLUTION_BWD_FILTER_ALGO_COUNT\n");
             backwardFilterAlgo.insert(m_backFiltAlgo.selectedAlgo);
         }
+#endif
+
         CUDNN_CALL(cudnnConvolutionBackwardFilter(*m_cudnn, &C::One, m_inT, ptr(in), m_outT, ptr(srcGrad), *m_conv, m_backFiltAlgo.selectedAlgo, ptr(workspace), workspace.BufferSize(), accumulateGradient ? &C::One : &C::Zero, *m_kernelT, ptr(kernelGrad)));
     }
 
