@@ -1253,7 +1253,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
             }
 
 #ifdef __PROFILE__
-            if (m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR == 0 && m_lrapiInfo.iter != 0)
+            if (m_lrapiInfo.sgdTraceLevel > 0 && m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR == 0 && m_lrapiInfo.iter != 0)
             {
                 fprintf(stderr, "Iteration [%d-%d]: forward time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)forwardTime / CLOCKS_PER_SEC);
                 fprintf(stderr, "Iteration [%d-%d]: backward time = %.8gs\n", (int)(m_lrapiInfo.iter - m_lrapiInfo.numItersToShowLR + 1), (int)m_lrapiInfo.iter, (double)backwardTime / CLOCKS_PER_SEC);
@@ -1280,7 +1280,7 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
                 if (m_lrapiInfo.iter >= m_lrapiInfo.maxIter)
                     m_lrapiInfo.reachMaxIter = true;
 
-                if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
+                if (m_lrapiInfo.sgdTraceLevel > 0 && 0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToShowLR)
                     fprintf(stderr, "Iteration %d: learning rate per sample = %.8g\n", (int)m_lrapiInfo.iter, learnRatePerSample);
             }
 
@@ -1710,7 +1710,11 @@ size_t SGD<ElemType>::TrainOneEpoch(ComputationNetworkPtr net,
 
 
         if (0 == m_lrapiInfo.iter % m_lrapiInfo.numItersToSaveModel && m_lrapiInfo.iter != 0 && ((m_mpi == nullptr) || m_mpi->IsMainNode()))
+        {
+            if(m_lrapiInfo.sgdTraceLevel > 0)
+                LOGPRINTF(stderr, "SGD: Saving checkpoint model '%ls'\n", (m_modelPath + L"-Iter" + to_wstring(m_lrapiInfo.iter)).c_str());
             net->Save(m_modelPath + L"-Iter" + to_wstring(m_lrapiInfo.iter));
+        }
     }
 
     // --- END MAIN MINIBATCH LOOP
@@ -3024,6 +3028,7 @@ SGDParams::SGDParams(const ConfigRecordType& configSGD, size_t sizeofElemType)
     m_lrapiInfo.numItersToSaveModel = configAALR(L"numItersToSaveModel", ((size_t)1) << ((size_t)60));
     if (m_lrapiInfo.numItersToSaveModel < 1)
         LogicError("numItersToSaveModel must be greater than 0.");
+    m_lrapiInfo.sgdTraceLevel = configAALR(L"sgdTraceLevel", (size_t)1);
 #pragma endregion
 
     // TODO: mbSize and truncated should be specified differently for truncated BPTT:

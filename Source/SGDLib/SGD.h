@@ -123,6 +123,7 @@ struct LRAPIInfo
     size_t numItersToShowLR;
     size_t numItersToSaveModel;
     bool reachMaxIter = false;
+    size_t sgdTraceLevel;
 
     LRAPIInfo() {}
 };
