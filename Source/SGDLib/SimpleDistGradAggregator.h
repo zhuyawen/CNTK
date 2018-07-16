@@ -6,6 +6,9 @@
 
 #pragma once
 
+#define __PROFILE__
+
+
 #include "Constants.h"
 #include "IDistGradAggregator.h"
 #include "CUDAPageLockedMemAllocator.h"
@@ -14,8 +17,12 @@
 #include "GPUDataTransferer.h"
 #include "TimerUtility.h"
 #include "MatrixQuantizerImpl.h"
+#include "ProgressTracing.h"
 
 namespace Microsoft { namespace MSR { namespace CNTK {
+#ifdef __PROFILE__
+    static size_t logCounter = 0;
+#endif
 
 template <class ElemType>
 class SimpleDistGradAggregator : public IDistGradAggregator<ElemType>
@@ -315,9 +322,22 @@ private:
         size_t numGradientIndex = m_gradientIndexToAggregate.size();
         if (numGradientIndex > 0)
         {
+#ifdef __PROFILE__
+            if (logCounter % 100 == 0)
+            {
+                LOGPRINTF(stderr, "AggregateGradientsImpl : numGradientIndex = %d\n", (int)numGradientIndex);
+                LOGPRINTF(stderr, "m_mpi->UseGpuGdr() = %d\n", m_mpi->UseGpuGdr());
+                LOGPRINTF(stderr, "deviceId = %d\n", deviceId);
+                LOGPRINTF(stderr, "m_nccl->IsSupported() = %d\n", m_nccl->IsSupported());
+            }
+#endif
             // non-GDR && GPU && non-NCCL: need to copy data from GPU to CPU
             if ((m_mpi->UseGpuGdr() == 0) && (deviceId != CPUDEVICE) && !m_nccl.IsSupported())
             {
+#ifdef __PROFILE__
+                if (logCounter++ % 100 == 0)
+                    LOGPRINTF(stderr, "AggregateGradientsImpl Branch1[non-GDR && GPU && non-NCCL: need to copy data from GPU to CPU] : m_mpi->UseGpuGdr() == false && deviceId != CPUDEVICE && m_nccl->IsSupported() == false \n");
+#endif
                 Matrix<ElemType>* gpuCopyBuffer = m_aggregationBuffer.get();
 
                 ElemType* reductionBuffer;
@@ -379,6 +399,10 @@ private:
             // non-NCCL, using CPU, using GDR
             else if (!m_nccl.IsSupported())
             {
+#ifdef __PROFILE__
+                if (logCounter++ % 100 == 0)
+                    LOGPRINTF(stderr, "AggregateGradientsImpl Branch2[non-NCCL, using CPU, using GDR] : m_nccl->IsSupported() == false \n");
+#endif
                 ElemType* reductionBuffer;
                 for (size_t i : m_gradientIndexToAggregate)
                 {
@@ -400,6 +424,10 @@ private:
             } 
             else if (m_nccl.IsSupported())
             {
+#ifdef __PROFILE__
+                if (logCounter++ % 100 == 0)
+                    LOGPRINTF(stderr, "AggregateGradientsImpl Branch3 : m_nccl->IsSupported() == true \n");
+#endif
                 std::vector<Matrix<ElemType>*> ncclReduceGradients;
                 for (size_t i : m_gradientIndexToAggregate)
                 {
