@@ -332,7 +332,7 @@ private:
             }
 #endif
             // non-GDR && GPU && non-NCCL: need to copy data from GPU to CPU
-            if (true || (m_mpi->UseGpuGdr() == 0) && (deviceId != CPUDEVICE) && !m_nccl.IsSupported())
+            if (false && (m_mpi->UseGpuGdr() == 0) && (deviceId != CPUDEVICE) && !m_nccl.IsSupported())
             {
 #ifdef __PROFILE__
                 if (logCounter++ % 100 == 0)
@@ -397,7 +397,7 @@ private:
                 }
             }
             // non-NCCL, using CPU, using GDR
-            else if (!m_nccl.IsSupported())
+            else if (true || !m_nccl.IsSupported())
             {
 #ifdef __PROFILE__
                 if (logCounter++ % 100 == 0)
