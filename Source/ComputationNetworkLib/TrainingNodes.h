@@ -396,7 +396,7 @@ public:
         fstream >> m_iter;
     }
 
-private:
+
     size_t m_inputDimension; // n
     size_t m_outputDimension; // k
     size_t m_minibatchSize; // m
@@ -570,7 +570,7 @@ public:
         fstream >> m_normalizeType;
     }
 
-private:
+
     size_t m_inputDimension; // n
     size_t m_minibatchSize; // m
     size_t m_normalizeType; // L1-normalization or L2-normalization
@@ -752,7 +752,7 @@ public:
         fstream >> m_iter;
     }
 
-private:
+
     size_t m_outputDimension; // k
     size_t m_minibatchSize; // m
     bool m_weightNormalize;
@@ -3320,6 +3320,7 @@ public:
         fstream >> m_blockIndex >> m_growthRate >> m_segmentIndex >> m_segmentNum >> m_startIndex >> m_numRows >> m_memoryLength;
     }
 
+
     size_t m_blockIndex;
     size_t m_growthRate;
     size_t m_segmentIndex;
@@ -4033,6 +4034,10 @@ public:
     double Epsilon() const { return m_epsilon; }
     bool UseCNTKEngine() const { return m_useCntkEngine; }
     bool DisableRegularization() const { return m_disableRegularization; }
+    bool ConnectGlobalConcat() const
+    {   
+        return m_connectGlobalConcat;
+    }
 
 private:
     // Old versioning - do not use. Do not remove until we're sure there are no old models around.

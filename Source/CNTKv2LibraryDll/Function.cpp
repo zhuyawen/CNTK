@@ -1811,7 +1811,6 @@ namespace CNTK
 
     FunctionPtr FeatureNormalize(const Variable& features, size_t normalizeType, const std::wstring& name)
     {
-        std::vector<Variable> operands = {features};
         auto additionalProperties = Dictionary();
         additionalProperties[PrimitiveFunction::AttributeFeatureNormalizeNormalizeType] = normalizeType;
         return UnaryOp(PrimitiveOpType::FeatureNormalize, features, std::move(additionalProperties), name);
@@ -1833,15 +1832,15 @@ namespace CNTK
         return AsComposite(MakeSharedObject<PrimitiveFunction>(PrimitiveOpType::AdditiveFullConnection, operands, std::move(additionalProperties), name), name);
     }
 
-    FunctionPtr GlobalConcat(const Variable& features, size_t blockIndex, size_t growthRate, size_t segmentIndex, size_t segmentNum, const std::wstring& name)
+    FunctionPtr GlobalConcat(const Variable& feature, size_t blockIndex, size_t growthRate, size_t segmentIndex, size_t segmentNum, const std::wstring& name)
     {
-        std::vector<Variable> operands = { features };
+        Variable featureCopy = feature;
         auto additionalProperties = Dictionary();
         additionalProperties[PrimitiveFunction::AttributeGlobalConcatBlockIndex] = blockIndex;
         additionalProperties[PrimitiveFunction::AttributeGlobalConcatGrowthRate] = growthRate;
         additionalProperties[PrimitiveFunction::AttributeGlobalConcatSegmentIndex] = segmentIndex;
         additionalProperties[PrimitiveFunction::AttributeGlobalConcatSegmentNum] = segmentNum;
-        return UnaryOp(PrimitiveOpType::GlobalConcat, features, std::move(additionalProperties), name);
+        return UnaryOp(PrimitiveOpType::GlobalConcat, featureCopy, std::move(additionalProperties), name);
     }
 
 
