@@ -8,7 +8,7 @@
 #include "stdafx.h"
 #include "CNTKLibrary.h"
 
-namespace ONNXIR
+namespace onnxruntime
 {
     class Graph;
 }
@@ -32,6 +32,6 @@ namespace CNTK
         // Create a CNTK graph (Function) given an ONNX graph. The function is created to use the 
         // specified computing device.
         //
-        static FunctionPtr CreateGraph(ONNXIR::Graph* src, const DeviceDescriptor& computeDevice);
+        static FunctionPtr CreateGraph(onnxruntime::Graph* src, const DeviceDescriptor& computeDevice);
     };
 }
