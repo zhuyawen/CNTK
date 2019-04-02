@@ -543,6 +543,18 @@ namespace CNTK
                 {
                     opType = PrimitiveOpType::Crop;
                 }
+                else if (node->OperationName() == OperationName2Of(CastNode))
+                {
+                    opType = PrimitiveOpType::Cast;
+                    if (node->Is<ComputationNode<half>>())
+                        primitiveFunctionConfigParameters.Add(PrimitiveFunctionAttribute::AttributeNameNewDataType, static_cast<int>(DataType::Float16));
+                    else if (node->Is<ComputationNode<float>>())
+                        primitiveFunctionConfigParameters.Add(PrimitiveFunctionAttribute::AttributeNameNewDataType, static_cast<int>(DataType::Float));
+                    else if (node->Is<ComputationNode<double>>())
+                        primitiveFunctionConfigParameters.Add(PrimitiveFunctionAttribute::AttributeNameNewDataType, static_cast<int>(DataType::Double));
+                    else
+                        RuntimeError("Cannot determing CastNode data type!");
+                }
                 else
                     InvalidArgument("Unsupported ComputationNode with OperationName='%S' found when loading legacy CNTK model.\n"
                                     "This is likely a deprecated operation; loading Brainscript/NDL models that contain deprecated operations, is not supported in Python/C++ API.\n"
